@@ -186,7 +186,7 @@ async function reconcile():Promise<void>{
   try{
     const all=notes();
     status={...status,state:'preparing',message:'Проверка модели эмбеддингов и векторной базы.',total:all.length};
-    const revisions=Object.fromEntries(all.map(n=>[n.id,digest(n.title+'\\n'+n.content)]));
+    const revisions=Object.fromEntries(all.map(n=>[n.id,digest(n.title+'\n'+n.content)]));
     if(!all.length&&!Object.keys(index.revisions).length){
       status={state:'ready',message:'Заметок пока нет. Сохраните заметку, чтобы началась автоматическая индексация.',
         indexed:0,total:0,model:MODEL,updatedAt:new Date().toISOString()};
