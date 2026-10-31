@@ -30,6 +30,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Server driver dependencies failed to install' }
           npm --prefix server run check:types
           if ($LASTEXITCODE -ne 0) { throw 'Four-database TypeScript check failed' }
+      - name: Verify PowerShell updater safety checks
+        shell: pwsh
+        run: |
+          & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/apply-update.ps1 -SelfTest
+          if ($LASTEXITCODE -ne 0) { throw 'Updater PowerShell self-test failed' }
       - name: Verify NoSQL BAT command handling (without Docker)
         shell: pwsh
         run: |
@@ -80,6 +85,17 @@ jobs:
               Start-Sleep -Seconds 2
             }
             if (-not $ready) { throw 'Local web server did not become healthy in 120 seconds' }
+            $url = $status.address
+            $updateInfo = Invoke-RestMethod -Uri ($url + 'api/update/status') -TimeoutSec 5
+            if ($updateInfo.repository -ne 'Aspksa/Hayumeri' -or $updateInfo.version -ne '0.2.0' -or -not $updateInfo.canApply) {
+              throw 'Update status API is not working in BAT mode'
+            }
+            try {
+              Invoke-RestMethod -Uri ($url + 'api/update/apply') -Method Post -ContentType 'application/json' -Headers @{ 'X-Hayumeri-Action' = '1' } -Body '{"sha":"0000000000000000000000000000000000000000"}' -TimeoutSec 5
+              throw 'Cross-origin update without Origin header was accepted'
+            } catch {
+              if ($_.Exception.Message -eq 'Cross-origin update without Origin header was accepted') { throw }
+            }
             $metrics = Get-Content -LiteralPath (Join-Path $folder '.runtime/launch-metrics.json') -Raw | ConvertFrom-Json
             if ($metrics.result -ne 'ready' -or $metrics.milliseconds.total -lt 0) { throw 'Invalid launch metrics' }
             $portBlocker.Stop()
