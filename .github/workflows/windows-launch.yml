@@ -71,6 +71,13 @@ jobs:
           foreach ($name in @('scripts', 'src', 'config')) {
             Copy-Item -LiteralPath $name -Destination $folder -Recurse -ErrorAction Stop
           }
+          # Reproduce a real double-click where CI is not true. The Vite CLI
+          # previously shut down on stdin EOF; CI=true masked the defect.
+          $env:CI = 'false'
+          $settingsPath = Join-Path $folder 'config/launcher.json'
+          $settings = Get-Content -LiteralPath $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
+          $settings.openBrowser = $false
+          $settings | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $settingsPath -Encoding UTF8
           $stdout = Join-Path $env:RUNNER_TEMP 'hayumeri-stdout.log'
           $stderr = Join-Path $env:RUNNER_TEMP 'hayumeri-stderr.log'
           # Hold the default port to verify automatic fallback and the reported URL.
@@ -104,6 +111,14 @@ jobs:
               Start-Sleep -Seconds 2
             }
             if (-not $ready) { throw 'Local web server did not become healthy in 120 seconds' }
+            # Healthy for a moment is not enough: verify Vite survives a
+            # closed/noninteractive stdin when the parent's CI is false.
+            Start-Sleep -Seconds 8
+            $main.Refresh()
+            if ($main.HasExited) { throw "Vite exited after readiness (user-mode CI=false). BAT code: $($main.ExitCode)" }
+            $alive = Invoke-WebRequest -Uri $status.address -UseBasicParsing -TimeoutSec 3
+            if ($alive.StatusCode -ne 200) { throw 'Vite stopped serving after initially becoming ready' }
+            Write-Host 'User-mode (CI=false) Vite remained running after readiness.'
             $url = $status.address
             $updateInfo = Invoke-RestMethod -Uri ($url + 'api/update/status') -TimeoutSec 5
             if ($updateInfo.repository -ne 'Aspksa/Hayumeri' -or $updateInfo.version -ne '0.2.0' -or -not $updateInfo.canApply) {
