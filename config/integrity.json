@@ -3,12 +3,32 @@
   "description": "Checksums guard against accidental corruption. The manifest itself is not digitally signed.",
   "files": [
     {
+      "path": "config/update.json",
+      "sha256": "a5c4bc63eb8ca074be7d542f92dbee38a8803888dfd2a42c20566695bb7279c6"
+    },
+    {
       "path": "index.html",
       "sha256": "d0f78649f48701b402a6da07fbf8ba9ebcffcfdf2fba50eadae9dd0fc2d052e1"
     },
     {
+      "path": "package.json",
+      "sha256": "f8f93f5490ac068444f9ba98723a09981cba8d5889191eb98affe192c4d09191"
+    },
+    {
+      "path": "scripts/apply-update.ps1",
+      "sha256": "8e9528c6d80c24e9ec4385dbbd1155a61d95a759d1d0189048eb62b73fdd2973"
+    },
+    {
+      "path": "scripts/update-api.ts",
+      "sha256": "554ce56a203f61a35161f0a9dfc5fd7a84312e2482660a28745db543d48b8261"
+    },
+    {
+      "path": "scripts/workspace-api.ts",
+      "sha256": "5e0d5cf1248c6dba5ff18b162ae444ccba94871706920030a7e85958aaaae3c1"
+    },
+    {
       "path": "src/main.ts",
-      "sha256": "4aa2b641046f30ad713f9ff3b8e56072d6769e1eda52884798880c6f6a9985e9"
+      "sha256": "b451761947e522705d4b09dff1623374203c8d4cfac516664b558100ded3b2f6"
     },
     {
       "path": "src/style.css",
@@ -19,28 +39,20 @@
       "sha256": "ab4181f66c6331f0fc5654f7cbaf1c5e97a5b5f631653b9efef3c2cac8f0d770"
     },
     {
+      "path": "src/workspace.css",
+      "sha256": "ff6e9da947b34e76bfdd639d6b3e0e4b9c7718f4698b2476f516319452742d9b"
+    },
+    {
+      "path": "src/workspace.ts",
+      "sha256": "2086e7db1c4a0026692b9f7f472fe17462a7b883fe10b728cf47c52b2e243638"
+    },
+    {
       "path": "tsconfig.json",
       "sha256": "07cf313907925b55f581b4e2fd32cfa0b5c8a4956c7efb77bc5db525aa097eb4"
     },
     {
-      "path": "package.json",
-      "sha256": "f8f93f5490ac068444f9ba98723a09981cba8d5889191eb98affe192c4d09191"
-    },
-    {
       "path": "vite.config.ts",
-      "sha256": "ce04e3aa8ec1ca222a38b914d598b2ed97255d8d54ad474086e0dde89f7be245"
-    },
-    {
-      "path": "scripts/update-api.ts",
-      "sha256": "554ce56a203f61a35161f0a9dfc5fd7a84312e2482660a28745db543d48b8261"
-    },
-    {
-      "path": "scripts/apply-update.ps1",
-      "sha256": "8e9528c6d80c24e9ec4385dbbd1155a61d95a759d1d0189048eb62b73fdd2973"
-    },
-    {
-      "path": "config/update.json",
-      "sha256": "a5c4bc63eb8ca074be7d542f92dbee38a8803888dfd2a42c20566695bb7279c6"
+      "sha256": "0423ccc8d5a91517d12e5e769b4d59e8ccf7175b1cca402db3abce21cd64a369"
     }
   ]
 }

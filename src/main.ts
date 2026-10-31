@@ -1,5 +1,7 @@
 import './style.css';
+import './workspace.css';
 import { initUpdateUi } from './update-ui';
+import { initWorkspaceUi } from './workspace';
 import packageManifest from '../package.json';
 
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -28,7 +30,14 @@ app.innerHTML = `
       </div>
     </header>
 
-    <main id="main-content" class="shell">
+    <div class="app-layout">
+      <aside class="app-sidebar" aria-label="Рабочие пространства">
+        <div class="sidebar-intro"><span class="sidebar-overline">H / WORKSPACE</span><strong>Пространства</strong><small>Всё необходимое рядом</small></div>
+        <nav class="workspace-navigation" id="workspace-navigation" aria-label="Выбор рабочего раздела"></nav>
+        <div class="sidebar-footer"><span class="sidebar-status-dot" aria-hidden="true"></span><span>Локальное приложение<br><small>Заметки и задачи сохраняются в .runtime</small></span></div>
+      </aside>
+      <main id="main-content" class="shell">
+        <div id="home-view">
       <section class="hero" aria-labelledby="welcome-title">
         <div class="hero-copy">
           <div class="eyebrow"><span class="status-dot" aria-hidden="true"></span><span>ЛОКАЛЬНАЯ СРЕДА · WINDOWS</span><span class="eyebrow-rule" aria-hidden="true"></span><span class="eyebrow-edition">EDITION 01</span></div>
@@ -95,8 +104,12 @@ app.innerHTML = `
           </article>
         </div>
       </section>
-    </main>
+        </div>
+        <section id="workspace-view" class="workspace-view" hidden aria-labelledby="workspace-title"></section>
+      </main>
+    </div>
 
+    <div id="workspace-live-status" class="workspace-live-status" role="status" aria-live="polite" aria-atomic="true"></div>
     <footer class="site-footer">
       <span class="footer-brand"><span aria-hidden="true">✧</span> HAYUMERI</span>
       <span>Локальная среда · Постепенное развитие</span>
@@ -106,3 +119,4 @@ app.innerHTML = `
 `;
 
 initUpdateUi();
+initWorkspaceUi();

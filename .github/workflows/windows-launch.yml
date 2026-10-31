@@ -124,6 +124,55 @@ jobs:
             if ($updateInfo.repository -ne 'Aspksa/Hayumeri' -or $updateInfo.version -ne '0.2.0' -or -not $updateInfo.canApply) {
               throw 'Update status API is not working in BAT mode'
             }
+            # Workspace API smoke: notes/tasks must persist on disk, not just in browser storage.
+            $workspaceUrl = $url + 'api/workspace/data'
+            $initial = Invoke-RestMethod -Uri $workspaceUrl -TimeoutSec 5
+            if ($initial.schema -ne 1 -or $initial.revision -ne 0 -or $initial.notes.Count -ne 0) {
+              throw 'Workspace data API initial state is invalid'
+            }
+            $origin = $url.TrimEnd('/')
+            $saveHeaders = @{ 'X-Hayumeri-Action' = '1'; 'Origin' = $origin }
+            $now = (Get-Date).ToUniversalTime().ToString('o')
+            $payload = @{
+              schema = 1
+              revision = 0
+              notes = @(@{ id = 'ci-note-1'; title = 'Проверка заметки'; content = 'Текст после перезапуска'; updatedAt = $now })
+              tasks = @(@{ id = 'ci-task-1'; text = 'Проверить данные'; done = $false; createdAt = $now })
+            } | ConvertTo-Json -Depth 8
+            $firstSave = Invoke-RestMethod -Uri $workspaceUrl -Method Post -Headers $saveHeaders -ContentType 'application/json' -Body ([Text.Encoding]::UTF8.GetBytes($payload)) -TimeoutSec 5
+            if ($firstSave.revision -ne 1) { throw 'Workspace revision was not incremented' }
+            $readBack = Invoke-RestMethod -Uri $workspaceUrl -TimeoutSec 5
+            if ($readBack.notes[0].title -ne 'Проверка заметки' -or $readBack.tasks[0].text -ne 'Проверить данные') {
+              throw 'Workspace data was not persisted via API'
+            }
+            if (-not (Test-Path -LiteralPath (Join-Path $folder '.runtime/workspace-data.json'))) {
+              throw 'Missing durable workspace data file'
+            }
+            $conflicted = $false
+            try {
+              Invoke-RestMethod -Uri $workspaceUrl -Method Post -Headers $saveHeaders -ContentType 'application/json' -Body ([Text.Encoding]::UTF8.GetBytes($payload)) -TimeoutSec 5 | Out-Null
+            } catch {
+              $conflicted = ([int]$_.Exception.Response.StatusCode -eq 409)
+            }
+            if (-not $conflicted) { throw 'Stale workspace writes were not rejected with 409' }
+            $forbidden = $false
+            try {
+              Invoke-RestMethod -Uri $workspaceUrl -Method Post -Headers @{ 'X-Hayumeri-Action' = '1' } -ContentType 'application/json' -Body ([Text.Encoding]::UTF8.GetBytes($payload)) -TimeoutSec 5 | Out-Null
+            } catch {
+              $forbidden = ([int]$_.Exception.Response.StatusCode -eq 403)
+            }
+            if (-not $forbidden) { throw 'Workspace cross-origin write was not rejected with 403' }
+            $freshPayload = $payload | ConvertFrom-Json
+            $freshPayload.revision = 1
+            $freshPayload.tasks[0].done = $true
+            $second = Invoke-RestMethod -Uri $workspaceUrl -Method Post -Headers $saveHeaders -ContentType 'application/json' -Body ([Text.Encoding]::UTF8.GetBytes(($freshPayload | ConvertTo-Json -Depth 8))) -TimeoutSec 5
+            if ($second.revision -ne 2 -or -not $second.tasks[0].done) {
+              throw 'Workspace task edit was not persisted'
+            }
+            if (-not (Test-Path -LiteralPath (Join-Path $folder '.runtime/workspace-data.previous.json'))) {
+              throw 'Workspace backup was not created'
+            }
+            Write-Host 'Workspace CRUD API, persistence, conflict and origin checks succeeded.'
             try {
               Invoke-RestMethod -Uri ($url + 'api/update/apply') -Method Post -ContentType 'application/json' -Headers @{ 'X-Hayumeri-Action' = '1' } -Body '{"sha":"0000000000000000000000000000000000000000"}' -TimeoutSec 5
               throw 'Cross-origin update without Origin header was accepted'
