@@ -173,6 +173,55 @@ jobs:
               throw 'Workspace backup was not created'
             }
             Write-Host 'Workspace CRUD API, persistence, conflict and origin checks succeeded.'
+            # Preference API smoke: values live in protected runtime, not in browser localStorage.
+            $preferencesUrl = $url + 'api/preferences/data'
+            $defaults = Invoke-RestMethod -Uri $preferencesUrl -TimeoutSec 5
+            if ($defaults.schema -ne 1 -or $defaults.revision -ne 0 -or $defaults.sidebarCollapsed -ne $false) {
+              throw 'UI preferences defaults are invalid'
+            }
+            $preferencePayload = @{
+              schema = 1
+              revision = 0
+              sidebarCollapsed = $true
+              sidebarWidth = 250
+              noteListPercent = 40
+              editorWidth = 1160
+              fontScale = 1.1
+              density = 'compact'
+              effects = $false
+              pinned = @('notes','agents')
+            } | ConvertTo-Json -Depth 5
+            $savedPrefs = Invoke-RestMethod -Uri $preferencesUrl -Method Post -Headers $saveHeaders -ContentType 'application/json' -Body ([Text.Encoding]::UTF8.GetBytes($preferencePayload)) -TimeoutSec 5
+            if ($savedPrefs.revision -ne 1) { throw 'UI preferences revision was not incremented' }
+            $savedRead = Invoke-RestMethod -Uri $preferencesUrl -TimeoutSec 5
+            if ($savedRead.sidebarWidth -ne 250 -or $savedRead.noteListPercent -ne 40 -or $savedRead.pinned[1] -ne 'agents') {
+              throw 'UI preferences were not persisted'
+            }
+            $prefsFolder = Join-Path $folder '.runtime'
+            if (-not (Test-Path -LiteralPath (Join-Path $prefsFolder 'ui-preferences.json'))) {
+              throw 'UI preferences were not saved in .runtime'
+            }
+            $prefConflict = $false
+            try {
+              Invoke-RestMethod -Uri $preferencesUrl -Method Post -Headers $saveHeaders -ContentType 'application/json' -Body ([Text.Encoding]::UTF8.GetBytes($preferencePayload)) -TimeoutSec 5 | Out-Null
+            } catch { $prefConflict = ([int]$_.Exception.Response.StatusCode -eq 409) }
+            if (-not $prefConflict) { throw 'Stale UI preferences save did not return 409' }
+            $prefForbidden = $false
+            try {
+              Invoke-RestMethod -Uri $preferencesUrl -Method Post -Headers @{ 'X-Hayumeri-Action' = '1' } -ContentType 'application/json' -Body ([Text.Encoding]::UTF8.GetBytes($preferencePayload)) -TimeoutSec 5 | Out-Null
+            } catch { $prefForbidden = ([int]$_.Exception.Response.StatusCode -eq 403) }
+            if (-not $prefForbidden) { throw 'UI preferences write without Origin did not return 403' }
+            $nextPrefs = $preferencePayload | ConvertFrom-Json
+            $nextPrefs.revision = 1
+            $nextPrefs.density = 'comfortable'
+            $secondPrefs = Invoke-RestMethod -Uri $preferencesUrl -Method Post -Headers $saveHeaders -ContentType 'application/json' -Body ([Text.Encoding]::UTF8.GetBytes(($nextPrefs | ConvertTo-Json -Depth 5))) -TimeoutSec 5
+            if ($secondPrefs.revision -ne 2 -or $secondPrefs.density -ne 'comfortable') {
+              throw 'UI preferences update failed'
+            }
+            if (-not (Test-Path -LiteralPath (Join-Path $prefsFolder 'ui-preferences.previous.json'))) {
+              throw 'UI preferences backup was not created'
+            }
+            Write-Host 'Persistent preferences, 403/409 protection and previous-copy backup succeeded.'
             try {
               Invoke-RestMethod -Uri ($url + 'api/update/apply') -Method Post -ContentType 'application/json' -Headers @{ 'X-Hayumeri-Action' = '1' } -Body '{"sha":"0000000000000000000000000000000000000000"}' -TimeoutSec 5
               throw 'Cross-origin update without Origin header was accepted'
