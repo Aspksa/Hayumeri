@@ -3,6 +3,7 @@ import './workspace.css';
 import './monitor.css';
 import './personalization.css';
 import './nosql.css';
+import './semantic-memory.css';
 import { initUpdateUi } from './update-ui';
 import { initWorkspaceUi } from './workspace';
 import { initPersonalizationUi } from './personalization';

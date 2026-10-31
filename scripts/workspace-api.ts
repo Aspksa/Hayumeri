@@ -2,6 +2,7 @@ import type { Plugin } from 'vite';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { signalNotesChanged } from './semantic-memory-api.ts';
 
 type Note = { id: string; title: string; content: string; updatedAt: string };
 type Task = { id: string; text: string; done: boolean; createdAt: string };
@@ -122,6 +123,8 @@ export function hayumeriWorkspaceApi(): Plugin {
               if (existsSync(temp)) unlinkSync(temp);
             }
             send(res, 200, nextData);
+            // Saving notes never waits for Ollama or Qdrant.
+            if (JSON.stringify(previous.notes) !== JSON.stringify(nextData.notes)) signalNotesChanged();
           } finally { writing = false; }
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Не удалось обработать данные.';
