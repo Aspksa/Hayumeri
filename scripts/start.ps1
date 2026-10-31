@@ -1,4 +1,4 @@
-# Hayumeri Windows launcher. Uses PowerShell 5.1 and does not require elevation.
+﻿# Hayumeri Windows launcher. Uses PowerShell 5.1 and does not require elevation.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).ProviderPath
@@ -142,15 +142,18 @@ function Invoke-LoggedCommand([string] $executable, [string[]] $arguments) {
     }
 }
 
+# Проверки отделены от механизма скачивания Node.js.
+. (Join-Path $PSScriptRoot 'launcher-helpers.ps1')
 $mutex = $null
 $locked = $false
+$server = $null
 $exitCode = 1
+$metricsSaved = $false
+$timings = @{}
+$overall = [Diagnostics.Stopwatch]::StartNew()
 try {
-    Write-Log '--- Hayumeri launch ---'
-    if (-not (Test-Path -LiteralPath (Join-Path $root 'package.json') -PathType Leaf)) { throw 'Missing package.json.' }
+    Write-Log '--- Hayumeri: запуск ---'
     New-Item -ItemType Directory -Force -Path $runtime | Out-Null
-
-    # A process-level mutex survives crashes without stale PID files.
     $sha = [Security.Cryptography.SHA256]::Create()
     try {
         $pathHash = [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($root.ToLowerInvariant()))).Replace('-', '')
@@ -158,64 +161,139 @@ try {
     $mutex = [System.Threading.Mutex]::new($false, ('Local\Hayumeri-' + $pathHash.Substring(0, 24)))
     try { $locked = $mutex.WaitOne(0) }
     catch [System.Threading.AbandonedMutexException] { $locked = $true }
+
     if (-not $locked) {
-        Write-Log 'Hayumeri is already starting or running from this folder. Close its original window to restart.'
+        Write-Log '[ПРОВЕРКА] Hayumeri уже запущена в этой папке (already starting or running).'
         $exitCode = 0
     } else {
+        Set-LaunchStatus 'ПРОВЕРКА' 'Проверка файлов, настроек и целостности.'
+        $phase = [Diagnostics.Stopwatch]::StartNew()
+        Assert-Preflight
+        $config = Read-LauncherConfig
+        Assert-Integrity
+        $timings['preflight'] = [int]$phase.ElapsedMilliseconds
+
+        $phase.Restart()
         $portableDir = Join-Path $runtime 'node-v24.22.2'
         $nodeInfo = Get-WorkingNode (Join-Path $runtime 'node')
         if (-not $nodeInfo) { $nodeInfo = Get-WorkingNode $portableDir }
         if (-not $nodeInfo) {
             $systemNode = Get-Command node.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
             if ($systemNode) {
-                Write-Log "Found system node.exe: $($systemNode.Source)"
+                Write-Log "Найден Node.js: $($systemNode.Source)"
                 $nodeInfo = Get-WorkingNode (Split-Path -Parent $systemNode.Source) -allowPathNpm
-                if (-not $nodeInfo) { Write-Log 'System Node.js could not be paired with a supported npm.cmd.' }
-            } else { Write-Log 'System Node.js not found on PATH.' }
+            }
         }
-        if (-not $nodeInfo) { $nodeInfo = Install-PortableNode }
-
+        if (-not $nodeInfo) {
+            Set-LaunchStatus 'ПОДГОТОВКА' 'Загрузка портативного Node.js с проверкой SHA-256.'
+            $nodeInfo = Install-PortableNode
+        }
         $env:PATH = $nodeInfo.directory + ';' + $env:PATH
         $env:NPM_CONFIG_CACHE = Join-Path $runtime 'npm-cache'
         $env:NPM_CONFIG_UPDATE_NOTIFIER = 'false'
-        Write-Log "Using Node.js $($nodeInfo.version) and npm.cmd"
+        Write-Log "[ПОДГОТОВКА] Node.js $($nodeInfo.version) доступен."
 
         $manifest = Join-Path $root 'package.json'
         $lockfile = Join-Path $root 'package-lock.json'
         $marker = Join-Path $runtime 'installed-dependencies.sha256'
         $viteJs = Join-Path $root 'node_modules\vite\bin\vite.js'
         function Get-InstallFingerprint {
-            $packageHash = (Get-Sha256 $manifest)
-            $lockHash = if (Test-Path -LiteralPath $lockfile) { (Get-Sha256 $lockfile) } else { 'no-lock' }
+            $packageHash = Get-Sha256 $manifest
+            $lockHash = if (Test-Path -LiteralPath $lockfile) { Get-Sha256 $lockfile } else { 'no-lock' }
             return "$packageHash|$lockHash|$($nodeInfo.version)"
         }
         $fingerprint = Get-InstallFingerprint
-        $installedFingerprint = if (Test-Path -LiteralPath $marker) { (Get-Content -LiteralPath $marker -Raw).Trim() } else { '' }
-        if (-not (Test-Path -LiteralPath $viteJs -PathType Leaf) -or $installedFingerprint -ne $fingerprint) {
-            Write-Log 'Installing dependencies (first run or changed manifest/lockfile/runtime)...'
+        $installedFingerprint = if (Test-Path -LiteralPath $marker) {
+            (Get-Content -LiteralPath $marker -Raw).Trim()
+        } else { '' }
+        $needsRepair = $installedFingerprint -ne $fingerprint -or -not (Test-Dependencies $root)
+        if ($needsRepair) {
+            Set-LaunchStatus 'ВОССТАНОВЛЕНИЕ' 'Проверка или восстановление зависимостей.'
             if (Test-Path -LiteralPath $lockfile) {
                 $code = Invoke-LoggedCommand -executable $nodeInfo.npm -arguments @('ci', '--no-audit', '--no-fund')
             } else {
                 $code = Invoke-LoggedCommand -executable $nodeInfo.npm -arguments @('install', '--no-audit', '--no-fund')
             }
-            if ($code -ne 0) { throw "npm installation failed (exit $code). See $log" }
-            if (-not (Test-Path -LiteralPath $viteJs -PathType Leaf)) { throw 'Vite executable is missing after npm install.' }
-            # npm install may have generated a lockfile. Fingerprint the final state.
+            if ($code -ne 0) { throw "Установка npm завершилась с кодом $code. Смотрите logs\launch.log." }
+            if (-not (Test-Dependencies $root)) { throw 'Зависимости остались неполными после установки npm.' }
             Set-Content -LiteralPath $marker -Value (Get-InstallFingerprint) -Encoding ASCII
-            Write-Log 'Dependencies verified.'
-        } else { Write-Log 'Dependencies unchanged; skipping installation.' }
+            Write-Log '[ВОССТАНОВЛЕНИЕ] Зависимости проверены.'
+        } else {
+            Write-Log '[ПРОВЕРКА] Зависимости актуальны. Повторная установка не нужна.'
+        }
+        $timings['dependencies'] = [int]$phase.ElapsedMilliseconds
 
-        Write-Log 'Starting local web server at 127.0.0.1 (default port 5173).'
-        Write-Log 'Vite opens the browser and chooses another port if required. Ctrl+C stops the server.'
-        $code = Invoke-LoggedCommand -executable $nodeInfo.node -arguments @($viteJs, '--host', '127.0.0.1', '--port', '5173', '--open')
-        if ($code -ne 0) { throw "Web server stopped with exit code $code." }
-        $exitCode = 0
+        $attempted = @{}
+        for ($attempt = 1; $attempt -le $config.maxAttempts; $attempt++) {
+            $port = Get-FreePort ([int]$config.preferredPort) ([int]$config.maxPort) $attempted
+            $attempted[$port] = $true
+            $address = "http://127.0.0.1:$port/"
+            Set-LaunchStatus 'ЗАПУСК' "Запуск сайта: попытка $attempt из $($config.maxAttempts), порт $port." $address
+            $stdout = Join-Path $logs ('vite-' + $PID + '-' + $attempt + '.out.log')
+            $stderr = Join-Path $logs ('vite-' + $PID + '-' + $attempt + '.err.log')
+            $phase.Restart()
+            # node.exe запускается непосредственно: vite.cmd некорректен в путях с амперсандом.
+            $args = @(('"' + $viteJs + '"'), '--host', '127.0.0.1', '--strictPort', '--port', [string]$port)
+            $server = Start-Process -FilePath $nodeInfo.node -ArgumentList $args -WorkingDirectory $root -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+
+            $ready = $false
+            while ($phase.Elapsed.TotalSeconds -lt $config.healthTimeoutSeconds) {
+                $server.Refresh()
+                if ($server.HasExited) { break }
+                if (Test-HealthySite $address) { $ready = $true; break }
+                Start-Sleep -Milliseconds 400
+            }
+            $timings['readiness'] = [int]$phase.ElapsedMilliseconds
+            if ($ready) {
+                $timings['total'] = [int]$overall.ElapsedMilliseconds
+                Set-LaunchStatus 'РАБОТАЕТ' "Сайт доступен: $address" $address
+                Save-LaunchMetrics $timings 'ready' $address
+                $metricsSaved = $true
+                if ($config.openBrowser -and $env:CI -ne 'true') {
+                    try { Start-Process -FilePath $address -ErrorAction Stop | Out-Null }
+                    catch { Write-Log "[ПРЕДУПРЕЖДЕНИЕ] Не удалось открыть браузер. Адрес: $address" }
+                }
+                Write-Log '[РАБОТАЕТ] Для остановки нажмите Ctrl+C.'
+                $server.WaitForExit()
+                if ($server.ExitCode -ne 0) {
+                    Write-ServerErrorTail $stdout $stderr
+                    throw "Сервер завершился с кодом $($server.ExitCode)."
+                }
+                Set-LaunchStatus 'ОСТАНОВЛЕНО' 'Сервер завершил работу.'
+                $exitCode = 0
+                break
+            }
+            Write-ServerErrorTail $stdout $stderr
+            if ($server -and -not $server.HasExited) {
+                Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+                $server.WaitForExit(5000) | Out-Null
+            }
+            $server = $null
+            if ($attempt -eq $config.maxAttempts) {
+                throw "Сайт не ответил за $($config.healthTimeoutSeconds) секунд. Исчерпаны $($config.maxAttempts) попытки."
+            }
+            Write-Log "[ПОВТОР] Попытка $attempt неуспешна. Выбирается следующий порт. Максимум $($config.maxAttempts) попыток."
+            Start-Sleep -Milliseconds 800
+        }
     }
 } catch {
-    Write-Log "ERROR: $($_.Exception.Message)"
-    Write-Host 'Open logs\launch.log for details.' -ForegroundColor Red
+    $message = $_.Exception.Message
+    Write-Log "[ОШИБКА] $message"
+    if ($locked) {
+        try { Set-LaunchStatus 'ОШИБКА' $message } catch { Write-Host $message -ForegroundColor Red }
+    }
     $exitCode = 1
 } finally {
+    if ($server) {
+        $server.Refresh()
+        if (-not $server.HasExited) {
+            Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+        }
+    }
+    if ($locked -and -not $metricsSaved) {
+        $timings['total'] = [int]$overall.ElapsedMilliseconds
+        try { Save-LaunchMetrics $timings 'error' } catch { }
+    }
     if ($locked -and $mutex) { $mutex.ReleaseMutex() }
     if ($mutex) { $mutex.Dispose() }
 }
