@@ -233,6 +233,7 @@ try {
             $stderr = Join-Path $logs ('vite-' + $PID + '-' + $attempt + '.err.log')
             $phase.Restart()
             # node.exe запускается непосредственно: vite.cmd некорректен в путях с амперсандом.
+            $env:HAYUMERI_LAUNCHER = '1'
             $args = @(('"' + $viteJs + '"'), '--host', '127.0.0.1', '--strictPort', '--port', [string]$port)
             $server = Start-Process -FilePath $nodeInfo.node -ArgumentList $args -WorkingDirectory $root -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
 
@@ -255,6 +256,65 @@ try {
                 }
                 Write-Log '[РАБОТАЕТ] Для остановки нажмите Ctrl+C.'
                 $server.WaitForExit()
+                $server.Refresh()
+                if ($server.ExitCode -eq 75) {
+                    $updateRequest = Join-Path $runtime 'update-request.json'
+                    if (-not (Test-Path -LiteralPath $updateRequest -PathType Leaf)) {
+                        throw 'Сервер запросил обновление, но отсутствует подтверждённое задание.'
+                    }
+                    $request = Get-Content -LiteralPath $updateRequest -Raw -Encoding UTF8 | ConvertFrom-Json
+                    if ([string]$request.commit -notmatch '^[a-f0-9]{40}
+                    Write-ServerErrorTail $stdout $stderr
+                    throw "Сервер завершился с кодом $($server.ExitCode)."
+                }
+                Set-LaunchStatus 'ОСТАНОВЛЕНО' 'Сервер завершил работу.'
+                $exitCode = 0
+                break
+            }
+            Write-ServerErrorTail $stdout $stderr
+            if ($server -and -not $server.HasExited) {
+                Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+                $server.WaitForExit(5000) | Out-Null
+            }
+            $server = $null
+            if ($attempt -eq $config.maxAttempts) {
+                throw "Сайт не ответил за $($config.healthTimeoutSeconds) секунд. Исчерпаны $($config.maxAttempts) попытки."
+            }
+            Write-Log "[ПОВТОР] Попытка $attempt неуспешна. Выбирается следующий порт. Максимум $($config.maxAttempts) попыток."
+            Start-Sleep -Milliseconds 800
+        }
+    }
+} catch {
+    $message = $_.Exception.Message
+    Write-Log "[ОШИБКА] $message"
+    if ($locked) {
+        try { Set-LaunchStatus 'ОШИБКА' $message } catch { Write-Host $message -ForegroundColor Red }
+    }
+    $exitCode = 1
+} finally {
+    if ($server) {
+        $server.Refresh()
+        if (-not $server.HasExited) {
+            Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+        }
+    }
+    if ($locked -and -not $metricsSaved) {
+        $timings['total'] = [int]$overall.ElapsedMilliseconds
+        try { Save-LaunchMetrics $timings 'error' } catch { }
+    }
+    if ($locked -and $mutex) { $mutex.ReleaseMutex() }
+    if ($mutex) { $mutex.Dispose() }
+}
+exit $exitCode
+) {
+                        throw 'Запрос обновления содержит неверную версию.'
+                    }
+                    Remove-Item -LiteralPath $updateRequest -Force -ErrorAction SilentlyContinue
+                    Set-LaunchStatus 'ОБНОВЛЕНИЕ' 'Установщик GitHub готовит резервную копию и новую версию.'
+                    Write-Log '[ОБНОВЛЕНИЕ] Окно BAT закрывается штатно. Установщик запустит Hayumeri после завершения.'
+                    $exitCode = 0
+                    break
+                }
                 if ($server.ExitCode -ne 0) {
                     Write-ServerErrorTail $stdout $stderr
                     throw "Сервер завершился с кодом $($server.ExitCode)."
