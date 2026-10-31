@@ -31,6 +31,6 @@ if not "%EXIT_CODE%"=="0" (
     echo.
     echo [ERROR] Hayumeri failed to start. Exit code: %EXIT_CODE%
     echo Check logs\launch.log in the project folder.
-    pause
+    if /i not "%CI%"=="true" pause
 )
 exit /b %EXIT_CODE%
