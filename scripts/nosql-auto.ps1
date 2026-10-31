@@ -166,11 +166,13 @@ try {
   try { $locked=$mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $locked=$true }
   if (-not $locked) { exit 0 }
   $docker=Find-Docker;$desktopTried=$false;$highCycles=0
-  if (-not $docker) {
-    Write-State 'docker-missing' 'Docker Desktop отсутствует. Веб-интерфейс работает; базы требуют однократной установки Docker.' 'balanced'
-    exit 0
-  }
   while (Parent-IsAlive) {
+    if (-not $docker) {
+      Write-State 'docker-missing' 'Docker Desktop отсутствует. После его установки Hayumeri обнаружит Docker автоматически.' 'balanced'
+      for ($i=0;$i -lt 150 -and (Parent-IsAlive);$i+=5) { Start-Sleep -Seconds 5 }
+      $docker=Find-Docker
+      continue
+    }
     $profile='balanced';$disk=Free-Disk
     try {
       $available=Docker-Memory $docker
