@@ -79,20 +79,20 @@ function Test-Services($credentials) {
   $failed = 0
   Write-Host '[БАЗЫ] MongoDB — проверка авторизации...'
   try {
-    Invoke-Compose @('exec','-T','mongodb','mongosh','--quiet','-u','hayumeri','-p',$credentials['MONGO_PASSWORD'],'--authenticationDatabase','admin','--eval','db.adminCommand({ping:1}).ok')
+    Invoke-Compose -Arguments @('exec','-T','mongodb','mongosh','--quiet','-u','hayumeri','-p',$credentials['MONGO_PASSWORD'],'--authenticationDatabase','admin','--eval','db.adminCommand({ping:1}).ok')
     Write-Host '[OK] MongoDB'
   } catch { Write-Host '[ОШИБКА] MongoDB'; $failed++ }
 
   Write-Host '[БАЗЫ] Redis — проверка PING...'
   try {
     # Environment variable avoids redis-cli's command-line password warning.
-    Invoke-Compose @('exec','-T','-e',('REDISCLI_AUTH=' + $credentials['REDIS_PASSWORD']),'redis','redis-cli','PING')
+    Invoke-Compose -Arguments @('exec','-T','-e',('REDISCLI_AUTH=' + $credentials['REDIS_PASSWORD']),'redis','redis-cli','PING')
     Write-Host '[OK] Redis'
   } catch { Write-Host '[ОШИБКА] Redis'; $failed++ }
 
   Write-Host '[БАЗЫ] Neo4j — проверка Cypher...'
   try {
-    Invoke-Compose @('exec','-T','neo4j','cypher-shell','-u','neo4j','-p',$credentials['NEO4J_PASSWORD'],'RETURN 1 AS ok')
+    Invoke-Compose -Arguments @('exec','-T','neo4j','cypher-shell','-u','neo4j','-p',$credentials['NEO4J_PASSWORD'],'RETURN 1 AS ok')
     Write-Host '[OK] Neo4j'
   } catch { Write-Host '[ОШИБКА] Neo4j'; $failed++ }
 
@@ -118,17 +118,17 @@ try {
   switch ($Action) {
     'start' {
       Write-Host '[БАЗЫ] Загрузка и запуск MongoDB, Redis, Neo4j, Qdrant...'
-      Invoke-Compose @('up','-d')
+      Invoke-Compose -Arguments @('up','-d')
       Write-Host '[БАЗЫ] Контейнеры запущены. Neo4j может прогреваться дольше остальных.'
       Write-Host '[БАЗЫ] Проверка: Hayumeri-DB.bat check'
-      Invoke-Compose @('ps')
+      Invoke-Compose -Arguments @('ps')
     }
     'stop' {
       Write-Host '[БАЗЫ] Остановка без удаления данных...'
-      Invoke-Compose @('stop')
+      Invoke-Compose -Arguments @('stop')
     }
-    'status' { Invoke-Compose @('ps') }
-    'logs' { Invoke-Compose @('logs','--tail','100') }
+    'status' { Invoke-Compose -Arguments @('ps') }
+    'logs' { Invoke-Compose -Arguments @('logs','--tail','100') }
     'check' { Test-Services $credentials }
   }
   exit 0
