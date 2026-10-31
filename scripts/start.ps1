@@ -164,6 +164,37 @@ function Start-NoSqlAutopilot {
     }
 }
 
+function Start-LocalEmbeddingModel {
+    if ($env:HAYUMERI_EMBEDDING_DISABLE -eq '1' -or $env:CI -eq 'true') { return }
+    try {
+        # Ollama is optional and runs on localhost. Never installs binaries or
+        # requests elevation; a missing application is reported by Memory UI.
+        try {
+            $answer = Invoke-WebRequest -Uri 'http://127.0.0.1:11434/api/tags' -TimeoutSec 1 -UseBasicParsing -ErrorAction Stop
+            if ($answer.StatusCode -eq 200) { return }
+        } catch { }
+        $candidate = Get-Command 'ollama.exe' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        $ollama = if ($candidate) { $candidate.Source } else { $null }
+        if (-not $ollama) {
+            $paths = @(
+                (Join-Path $env:LOCALAPPDATA 'Programs\Ollama\ollama.exe'),
+                (Join-Path $env:ProgramFiles 'Ollama\ollama.exe')
+            )
+            foreach ($path in $paths) {
+                if (Test-Path -LiteralPath $path -PathType Leaf) { $ollama = $path; break }
+            }
+        }
+        if (-not $ollama) {
+            Write-Log '[ПАМЯТЬ] Ollama не установлена; сайт работает, раздел Память покажет состояние.'
+            return
+        }
+        $proc = Start-Process -FilePath $ollama -ArgumentList @('serve') -WorkingDirectory $root -WindowStyle Hidden -PassThru -ErrorAction Stop
+        Write-Log ('[ПАМЯТЬ] Запущен локальный сервер эмбеддингов Ollama (PID ' + $proc.Id + ').')
+    } catch {
+        Write-Log ('[ПРЕДУПРЕЖДЕНИЕ] Не удалось автоматически открыть Ollama: ' + $_.Exception.Message)
+    }
+}
+
 # Проверки отделены от механизма скачивания Node.js.
 . (Join-Path $PSScriptRoot 'launcher-helpers.ps1')
 $mutex = $null
@@ -287,6 +318,7 @@ try {
                 Save-LaunchMetrics $timings 'ready' $address
                 $metricsSaved = $true
                 Start-NoSqlAutopilot
+                Start-LocalEmbeddingModel
                 if ($config.openBrowser -and $env:CI -ne 'true') {
                     try { Start-Process -FilePath $address -ErrorAction Stop | Out-Null }
                     catch { Write-Log "[ПРЕДУПРЕЖДЕНИЕ] Не удалось открыть браузер. Адрес: $address" }
