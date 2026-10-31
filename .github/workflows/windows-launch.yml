@@ -127,6 +127,16 @@ jobs:
               throw 'Update status API is not working in BAT mode'
             }
             # Workspace API smoke: notes/tasks must persist on disk, not just in browser storage.
+            # Semantic notes memory API must remain safe even without Ollama on CI.
+            $semanticStatus = Invoke-RestMethod -Uri ($url + 'api/memory/status') -TimeoutSec 5
+            if (-not $semanticStatus.state -or $semanticStatus.model -ne 'embeddinggemma') {
+              throw 'Missing or incorrect automatic semantic memory status'
+            }
+            $searchBlocked = $false
+            try {
+              Invoke-RestMethod -Uri ($url + 'api/memory/search') -Method Post -ContentType 'application/json' -Body '{"query":"note"}' -TimeoutSec 5 | Out-Null
+            } catch { $searchBlocked = ([int]$_.Exception.Response.StatusCode -eq 403) }
+            if (-not $searchBlocked) { throw 'Semantic search without trusted Origin must be rejected' }
             $noSqlView = Invoke-RestMethod -Uri ($url + 'api/nosql/status') -TimeoutSec 5
             if ($noSqlView.schema -ne 1 -or $noSqlView.automatic -ne $true -or -not $noSqlView.state) {
               throw 'NoSQL automatic status endpoint is invalid'
