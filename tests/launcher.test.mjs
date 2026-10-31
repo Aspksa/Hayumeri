@@ -57,10 +57,11 @@ test('recognizes package.json, package-lock.json and Node version changes', () =
 });
 
 test('starts only on localhost, saves logs and limits log growth', () => {
-  assert.match(launcher, /-arguments @\('run', 'dev', '--', '--host', '127\.0\.0\.1', '--port', '5173', '--open'\)/);
+  assert.match(launcher, /-executable \$nodeInfo\.node -arguments @\(\$viteJs, '--host', '127\.0\.0\.1', '--port', '5173', '--open'\)/);
   assert.match(launcher, /-gt 4MB/);
   assert.match(launcher, /launch\.previous\.log/);
-  assert.match(launcher, /Invoke-LoggedNpm/);
+  assert.match(launcher, /Invoke-LoggedCommand/);
+  assert.match(launcher, /node_modules\\vite\\bin\\vite\.js/);
   assert.match(launcher, /Add-Content -LiteralPath \$log/);
   assert.match(launcher, /\$env:NPM_CONFIG_CACHE/);
 });
