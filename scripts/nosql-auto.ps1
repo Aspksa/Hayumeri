@@ -162,7 +162,7 @@ try {
     $digest=$sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($root.ToLowerInvariant()))
     $lockId=[BitConverter]::ToString($digest).Replace('-','').Substring(0,24)
   } finally { $sha.Dispose() }
-  $mutex=New-Object Threading.Mutex($false,('Local\Hayumeri-NoSQL-'+$lockId))
+  $mutex=[System.Threading.Mutex]::new($false, ('Local\Hayumeri-NoSQL-' + $lockId))
   try { $locked=$mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $locked=$true }
   if (-not $locked) { exit 0 }
   $docker=Find-Docker;$desktopTried=$false;$highCycles=0
