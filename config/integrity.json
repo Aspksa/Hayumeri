@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "description": "Checksums guard against accidental corruption. The manifest itself is not digitally signed.",
+  "files": [
+    {
+      "path": "index.html",
+      "sha256": "86c38a7248836c9fc979019f7f631528eb4a9be1c6279308c00fb5461007cb04"
+    },
+    {
+      "path": "src/main.ts",
+      "sha256": "94299c696cd75e8d0ed1773160b5c733d3c7f980c516d842cf251a112e5304ad"
+    },
+    {
+      "path": "src/style.css",
+      "sha256": "aaf6394ee9f9764b41070cff0a518207415d36b45a55eb37d5749c797729f278"
+    },
+    {
+      "path": "tsconfig.json",
+      "sha256": "07cf313907925b55f581b4e2fd32cfa0b5c8a4956c7efb77bc5db525aa097eb4"
+    },
+    {
+      "path": "package.json",
+      "sha256": "f80835648d2c2653d64bb066a2cb5804d437f458652bc70ec82bf9f7e1ee20a7"
+    }
+  ]
+}
