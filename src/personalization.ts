@@ -253,9 +253,19 @@ export function initPersonalizationUi(): void {
         if (value >= .9 && value <= 1.3) setPreferences({ fontScale: value });
         break;
       }
-      case 'sidebarWidth': case 'editorWidth': case 'noteListPercent': {
+      case 'sidebarWidth': {
         const value = Number(el.value);
-        if (Number.isInteger(value)) setPreferences({ [key]: value });
+        if (Number.isInteger(value) && value >= 206 && value <= 340) setPreferences({ sidebarWidth: value });
+        break;
+      }
+      case 'editorWidth': {
+        const value = Number(el.value);
+        if (Number.isInteger(value) && value >= 760 && value <= 1600) setPreferences({ editorWidth: value });
+        break;
+      }
+      case 'noteListPercent': {
+        const value = Number(el.value);
+        if (Number.isInteger(value) && value >= 25 && value <= 52) setPreferences({ noteListPercent: value });
         break;
       }
       case 'density': if (el.value === 'comfortable' || el.value === 'compact') setPreferences({ density: el.value }); break;
@@ -266,11 +276,11 @@ export function initPersonalizationUi(): void {
     if (output) output.textContent = key === 'fontScale' ? Math.round(state.fontScale * 100) + '%' :
       key === 'noteListPercent' ? state.noteListPercent + '%' : el.value + ' px';
   };
-  settings.addEventListener('input', settingsChanged);
+  settings.addEventListener('input', event => {
+    if ((event.target as HTMLElement).matches('input[type=range]')) settingsChanged(event);
+  });
   settings.addEventListener('change', event => {
-    const el = event.target as HTMLElement;
-    if (el.matches('input[type=range]')) return;
-    settingsChanged(event);
+    if (!(event.target as HTMLElement).matches('input[type=range]')) settingsChanged(event);
   });
 
   const runCommand = (kind: string, key: string): void => {
