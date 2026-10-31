@@ -1,5 +1,6 @@
 import './style.css';
 import './workspace.css';
+import './monitor.css';
 import { initUpdateUi } from './update-ui';
 import { initWorkspaceUi } from './workspace';
 import packageManifest from '../package.json';
