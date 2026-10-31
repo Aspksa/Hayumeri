@@ -108,8 +108,8 @@ export async function probeDatabases(settings: DatabaseSettings): Promise<Databa
         await driver.verifyConnectivity();
         const session = driver.session();
         try {
-          const result = await session.run('RETURN 1 AS ok');
-          if (result.records[0]?.get('ok') !== 1) throw new Error('Cypher check failed');
+          const result = await session.run('RETURN true AS ok');
+          if (result.records[0]?.get('ok') !== true) throw new Error('Cypher check failed');
         } finally { await session.close(); }
       } finally { await driver.close(); }
     }),
