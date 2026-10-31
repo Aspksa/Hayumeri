@@ -40,7 +40,7 @@
     },
     {
       "path": "scripts/semantic-memory-api.ts",
-      "sha256": "460fb73f83a79bd12484f0da997814d3e027e52cd9529f2f0a1907f47fdf778c"
+      "sha256": "428d7e6b9aee1ea55a7fad34bb236a4afca866bcdf392b9728c10796a9ac7da8"
     },
     {
       "path": "scripts/start.ps1",
