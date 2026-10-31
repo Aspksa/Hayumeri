@@ -129,13 +129,13 @@ test('diagnostic status, launch timing and browser gating are wired', () => {
 
 
 test('Vite child survives noninteractive Windows stdin without altering the BAT browser mode', () => {
-  assert.match(launcher, /\\$originalCI = \\$env:CI/);
-  assert.match(launcher, /\\$env:CI = 'true'/);
+  assert.match(launcher, /\$originalCI = \$env:CI/);
+  assert.match(launcher, /\$env:CI = 'true'/);
   assert.match(launcher, /Remove-Item -Path Env:CI/);
-  assert.match(launcher, /\\$env:CI = \\$originalCI/);
-  assert.match(launcher, /if \\(\\$config\\.openBrowser -and \\$env:CI -ne 'true'\\)/);
-  assert.match(launcher, /\\$serverExitCode = \\$null/);
-  assert.match(launcher, /if \\(\\$null -eq \\$serverExitCode\\)/);
-  assert.match(launcher, /if \\(\\[int\\]\\$serverExitCode -eq 75\\)/);
-  assert.match(launcher, /if \\(\\[int\\]\\$serverExitCode -ne 0\\)/);
+  assert.match(launcher, /\$env:CI = \$originalCI/);
+  assert.match(launcher, /if \(\$config\.openBrowser -and \$env:CI -ne 'true'\)/);
+  assert.match(launcher, /\$serverExitCode = \$null/);
+  assert.match(launcher, /if \(\$null -eq \$serverExitCode\)/);
+  assert.match(launcher, /if \(\[int\]\$serverExitCode -eq 75\)/);
+  assert.match(launcher, /if \(\[int\]\$serverExitCode -ne 0\)/);
 });
