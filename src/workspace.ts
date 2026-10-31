@@ -254,11 +254,7 @@ export function initWorkspaceUi(): void {
       + '</div></div>'
       + '<div class="future-grid">' + item.details.map((detail, index) =>
         '<div class="future-tile"><span>0' + (index + 1) + '</span><strong>' + escapeHtml(detail)
-        + '</strong><small>Запланировано</small></div>').join('') + '</div>'
-      + (route === 'system'
-        ? '<div class="system-note"><p>Сейчас работает локальный сайт и модуль обновлений. Четыре NoSQL-сервиса управляются отдельно через Hayumeri-DB.bat; их состояние здесь не проверяется.</p>'
-          + '<button type="button" class="gold-button" data-action="open-update">Открыть обновления GitHub</button></div>'
-        : '');
+        + '</strong><small>Запланировано</small></div>').join('') + '</div>';
   }
   function render(): void {
     if (route === 'home') return;
