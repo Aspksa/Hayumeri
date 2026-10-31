@@ -60,6 +60,13 @@ export function initWorkspaceUi(): void {
   let noteSearch = '';
   let taskFilter: 'all' | 'open' | 'done' = 'all';
   let errorMessage = '';
+  type SemanticHit = {sourceId:string;title:string;preview:string;score:number;updatedAt:string};
+  let semanticStatus: {state:string;message:string;indexed:number;total:number;model:string}|null = null;
+  let semanticQuery = '';
+  let semanticHits: SemanticHit[] = [];
+  let semanticFeedback = '';
+  let semanticBusy = false;
+
 
   function announce(message: string): void { liveStatus.textContent = message; }
 
@@ -234,8 +241,47 @@ export function initWorkspaceUi(): void {
       + '<button type="button" class="gold-button" data-action="open-update">Обновления GitHub</button>'
       + '</section>';
   }
+  async function refreshSemanticStatus(): Promise<void> {
+    if(route!=='memory')return;
+    try {
+      const response=await fetch('/api/memory/status',{cache:'no-store'});
+      if(!response.ok)throw new Error('Статус недоступен.');
+      const result: unknown=await response.json();
+      const item=result as {state:string;message:string;indexed:number;total:number;model:string};
+      semanticStatus=item;
+    }catch{semanticStatus={state:'error',message:'Не удалось получить состояние смыслового индекса.',indexed:0,total:0,model:'не определена'};}
+    if(route==='memory')render();
+  }
+  function renderSemanticMemory(): string {
+    const item=semanticStatus;
+    const statusText=item?.message??'Проверка Ollama, Qdrant и индекса заметок…';
+    const results=semanticHits.map(hit=>
+      '<article class="semantic-result"><div class="semantic-result-head"><strong>'+escapeHtml(hit.title||'Без названия')
+      +'</strong><span>Сходство '+Math.round(Math.max(0,Math.min(1,hit.score))*100)+'%</span></div>'
+      +'<p>'+escapeHtml(hit.preview)+'</p>'
+      +'<div class="semantic-result-foot"><small>Источник: заметка · '+escapeHtml(formatDate(hit.updatedAt))+'</small>'
+      +'<button type="button" class="gold-button" data-action="open-memory-note" data-id="'+escapeHtml(hit.sourceId)+'">Открыть источник</button></div></article>'
+    ).join('');
+    return sectionHeader('Векторная память', 'Смысловой поиск среди сохранённых заметок. Результаты проверяются по исходным записям; документы и разговоры пока не подключены.', 'ПАМЯТЬ / СЕМАНТИЧЕСКИЙ ПОИСК')
+      +'<section class="semantic-panel"><span class="workspace-eyebrow">ЛОКАЛЬНАЯ МОДЕЛЬ / QDRANT</span>'
+      +'<h2>'+escapeHtml(item?.state==='ready'?'Индекс заметок доступен':'Подготовка смыслового индекса')+'</h2>'
+      +'<p role="status">'+escapeHtml(statusText)+'</p>'
+      +'<div class="semantic-stats"><span>Индексировано заметок: <strong>'+Math.max(0,item?.indexed??0)+'</strong></span>'
+      +'<span>Всего заметок: <strong>'+Math.max(0,item?.total??0)+'</strong></span>'
+      +'<span>Модель: <strong>'+escapeHtml(item?.model??'embeddinggemma')+'</strong></span></div>'
+      +'<form id="semantic-search" class="semantic-form"><label class="field-label" for="semantic-query">Поиск по смыслу</label>'
+      +'<div class="task-add-row"><input class="workspace-input" id="semantic-query" maxlength="500" required'
+      +' placeholder="О чём я писал по этой теме?" value="'+escapeHtml(semanticQuery)+'">'
+      +'<button type="submit" class="gold-button"'+(semanticBusy?' disabled':'')+'>Найти воспоминания</button></div></form>'
+      +'<p class="semantic-notice">Локальные заметки остаются в .runtime. При первой настройке Ollama может автоматически загрузить модель через интернет; текст в облачные ИИ-сервисы не отправляется.</p>'
+      +'<div id="semantic-results" class="semantic-results" aria-live="polite">'
+      +(semanticFeedback?'<p class="workspace-banner">'+escapeHtml(semanticFeedback)+'</p>':'')
+      +(results||(!semanticFeedback?'<div class="workspace-empty">Введите запрос, чтобы найти смысловые связи среди заметок.</div>':''))
+      +'</div></section>';
+  }
   function renderFuture(): string {
     if (route === 'system') return renderSystem();
+    if (route === 'memory') return renderSemanticMemory();
     const descriptions: Record<Exclude<Route,'home'|'notes'|'tasks'>, { lead: string; details: string[] }> = {
       knowledge: { lead: 'Библиотека документов, редактор и полнотекстовый поиск.', details: ['Дерево папок и файлов','Просмотр источников','Редактор документов'] },
       memory: { lead: 'Долговременные факты с проверяемыми источниками.', details: ['Хронология памяти','Источники и точность','Связь с разговорами'] },
@@ -280,6 +326,7 @@ export function initWorkspaceUi(): void {
     render();
     if (next === 'notes' || next === 'tasks') void ensureLoaded();
     if (next === 'system') void refreshNoSql();
+    if (next === 'memory') void refreshSemanticStatus();
     if (next === 'home' && (location.hash === '#foundation' || location.hash === '#platform')) {
       requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView());
     } else {
@@ -367,6 +414,31 @@ export function initWorkspaceUi(): void {
   });
   view.addEventListener('submit', event => {
     const form = event.target as HTMLFormElement;
+    if (form.id === 'semantic-search') {
+      event.preventDefault();
+      if(semanticBusy)return;
+      const query=form.querySelector<HTMLInputElement>('#semantic-query')?.value.trim()??'';
+      if(!query)return;
+      semanticBusy=true;semanticQuery=query;semanticHits=[];semanticFeedback='Идёт поиск в Qdrant…';render();
+      void (async()=>{
+        try{
+          const response=await fetch('/api/memory/search',{
+            method:'POST',headers:{'Content-Type':'application/json','X-Hayumeri-Action':'1'},
+            body:JSON.stringify({query}),cache:'no-store'
+          });
+          const result:unknown=await response.json();
+          if(!response.ok){
+            const problem=result as {error?:string};
+            throw new Error(problem.error??'Поиск временно недоступен.');
+          }
+          const payload=result as {hits:SemanticHit[]};
+          semanticHits=Array.isArray(payload.hits)?payload.hits:[];
+          semanticFeedback=semanticHits.length?'Показаны результаты, сопоставленные с актуальными исходными заметками.':'Совпадений среди проиндексированных заметок не найдено.';
+        }catch(error){semanticFeedback=error instanceof Error?error.message:'Поиск не удался.';}
+        finally{semanticBusy=false;if(route==='memory')render();}
+      })();
+      return;
+    }
     if (form.id !== 'task-create') return;
     event.preventDefault();
     const field = form.querySelector<HTMLInputElement>('#new-task-text');
@@ -391,6 +463,11 @@ export function initWorkspaceUi(): void {
     }
     const action = button.dataset.action;
     if (action === 'open-update') { document.querySelector<HTMLButtonElement>('#update-trigger')?.click(); return; }
+    if (action === 'open-memory-note') {
+      selectedNote=button.dataset.id??null;
+      location.hash='#notes';
+      return;
+    }
     if (action === 'retry') { loaded = false; errorMessage = ''; void ensureLoaded(); return; }
     if (!loaded || saving) return;
     if (action === 'new-note' || action === 'select-note') {
@@ -425,5 +502,6 @@ export function initWorkspaceUi(): void {
     }
   });
   window.setInterval(() => { if (route === 'system') void refreshNoSql(); }, 30000);
+  window.setInterval(() => { if (route === 'memory' && !semanticBusy) void refreshSemanticStatus(); }, 30000);
   requestRoute();
 }
