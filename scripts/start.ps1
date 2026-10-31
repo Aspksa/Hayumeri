@@ -30,7 +30,7 @@ function Get-WorkingNode([string] $directory, [switch] $allowPathNpm) {
     $exe = Join-Path $directory 'node.exe'
     if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { return $null }
     try {
-        $version = [string] (& $exe --version 2>$null | Select-Object -First 1)
+        $version = [string] (& $exe --version 2>$null)
         $matched = [regex]::Match($version, '^v(\d+)\.(\d+)\.(\d+)$')
         $nodeExitCode = $LASTEXITCODE
         if ($nodeExitCode -ne 0 -or -not $matched.Success) {
