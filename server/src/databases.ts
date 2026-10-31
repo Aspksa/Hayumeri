@@ -24,8 +24,9 @@ export interface DatabaseProbe {
 const secretKeys = ['MONGO_PASSWORD', 'REDIS_PASSWORD', 'NEO4J_PASSWORD', 'QDRANT_API_KEY'] as const;
 const envPath = fileURLToPath(new URL('../../.env.nosql', import.meta.url));
 
-export function loadSettings(env: NodeJS.ProcessEnv = process.env): DatabaseSettings {
-  loadDotenv({ path: envPath, quiet: true, processEnv: env });
+export function loadSettings(): DatabaseSettings {
+  loadDotenv({ path: envPath, quiet: true });
+  const env = process.env;
   for (const key of secretKeys) {
     if (!/^[a-fA-F0-9]{64}$/.test(env[key] ?? '')) {
       throw new Error('Отсутствует или повреждён ' + key + ' в .env.nosql. Запустите Hayumeri-DB.bat start.');
