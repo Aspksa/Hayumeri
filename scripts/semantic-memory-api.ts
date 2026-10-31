@@ -28,6 +28,7 @@ let interval: ReturnType<typeof setInterval>|null = null;
 let live = false;
 let installedModel = false;
 let pullTried = false;
+let indexFault = false;
 
 export function splitNote(text:string):string[] {
   const clean=text.replace(/\r\n/g,'\n').trim();
@@ -181,7 +182,7 @@ async function store(name:string,note:Note,sourceHash:string):Promise<void>{
   }});
 }
 async function reconcile():Promise<void>{
-  if(busy||!live)return;
+  if(busy||!live||indexFault)return;
   busy=true;
   try{
     const all=notes();
@@ -219,7 +220,9 @@ async function reconcile():Promise<void>{
       writeIndex();
       if(++processed>=4)break; // small background queue per cycle
     }
-    status={state:'ready',message:processed?'Фрагменты заметок индексируются автоматически.':'Индекс заметок синхронизирован.',
+    const completed=Object.keys(index.revisions).length===all.length;
+    status={state:completed?'ready':'indexing',
+      message:completed?'Индекс заметок синхронизирован.':'Фрагменты заметок продолжают индексироваться автоматически.',
       indexed:Object.keys(index.revisions).length,total:all.length,model:MODEL,updatedAt:new Date().toISOString()};
   }catch(error){
     const message=error instanceof Error?error.message:'Неизвестная ошибка.';
@@ -266,7 +269,11 @@ export function hayumeriSemanticMemoryApi():Plugin{
     name:'hayumeri-semantic-memory',
     apply:'serve',
     configureServer(server){
-      try{index=readIndex();}catch{index=defaultIndex();}
+      try{index=readIndex();}
+      catch {
+        indexFault=true;
+        status={...status,state:'error',message:'Повреждён журнал семантического индекса. Исходные заметки сохранены; проверьте .runtime/semantic-index.json перед восстановлением.'};
+      }
       live=true;
       const start=()=>{signalNotesChanged();interval=setInterval(()=>{void reconcile();},30000);};
       if(server.httpServer?.listening)start();
