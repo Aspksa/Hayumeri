@@ -186,6 +186,21 @@ async function reconcile():Promise<void>{
   try{
     const all=notes();
     status={...status,state:'preparing',message:'Проверка модели эмбеддингов и векторной базы.',total:all.length};
+    const revisions=Object.fromEntries(all.map(n=>[n.id,digest(n.title+'\\n'+n.content)]));
+    if(!all.length&&!Object.keys(index.revisions).length){
+      status={state:'ready',message:'Заметок пока нет. Сохраните заметку, чтобы началась автоматическая индексация.',
+        indexed:0,total:0,model:MODEL,updatedAt:new Date().toISOString()};
+      return;
+    }
+    if(index.collection&&Object.keys(index.revisions).length===all.length
+      &&all.every(n=>index.revisions[n.id]===revisions[n.id])){
+      try {
+        await qdrant('/collections/'+index.collection);
+        status={state:'ready',message:'Индекс заметок синхронизирован.',
+          indexed:all.length,total:all.length,model:MODEL,updatedAt:new Date().toISOString()};
+        return; // do not repeatedly load the embedding model every 30 seconds
+      }catch { /* Missing Qdrant collection: rebuild from original notes. */ }
+    }
     const probe=await embed(['проверка локальной модели']);
     const name=await prepareCollection(probe[0]!.length);
     status={...status,state:'indexing',message:'Обновление индекса заметок.',total:all.length};
