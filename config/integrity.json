@@ -12,7 +12,7 @@
     },
     {
       "path": "src/style.css",
-      "sha256": "03f6d1d6a11682596096e76f426f86c3fa4bd1ccc55d4ab6c4ae2c23afb775f1"
+      "sha256": "c67c06e6f585e0b636c04385be4a92eeb285ca25337dd54e6ccac9ab7253aa84"
     },
     {
       "path": "src/update-ui.ts",
