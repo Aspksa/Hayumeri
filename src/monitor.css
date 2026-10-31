@@ -10,7 +10,7 @@
 html { scrollbar-gutter: stable; }
 body { overflow-x: clip; }
 .site-frame {
-  width: min(calc(100% - 2 * var(--monitor-gutter)), var(--monitor-shell-max));
+  width: min(calc(100% - var(--monitor-gutter) - var(--monitor-gutter)), var(--monitor-shell-max));
   max-width: 100%;
 }
 .app-layout {
