@@ -33,7 +33,7 @@ jobs:
       - name: Parse Windows PowerShell scripts without running them
         shell: pwsh
         run: |
-          foreach ($file in @('scripts/start.ps1', 'scripts/apply-update.ps1', 'scripts/launcher-helpers.ps1', 'scripts/databases.ps1')) {
+          foreach ($file in @('scripts/start.ps1', 'scripts/apply-update.ps1', 'scripts/launcher-helpers.ps1', 'scripts/databases.ps1', 'scripts/nosql-auto.ps1')) {
             $tokens = $null
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $file), [ref]$tokens, [ref]$errors) | Out-Null
@@ -127,6 +127,11 @@ jobs:
               throw 'Update status API is not working in BAT mode'
             }
             # Workspace API smoke: notes/tasks must persist on disk, not just in browser storage.
+            $noSqlView = Invoke-RestMethod -Uri ($url + 'api/nosql/status') -TimeoutSec 5
+            if ($noSqlView.schema -ne 1 -or $noSqlView.automatic -ne $true -or -not $noSqlView.state) {
+              throw 'NoSQL automatic status endpoint is invalid'
+            }
+            Write-Host ('NoSQL automatic status API responded: ' + $noSqlView.state)
             $workspaceUrl = $url + 'api/workspace/data'
             $initial = Invoke-RestMethod -Uri $workspaceUrl -TimeoutSec 5
             if ($initial.schema -ne 1 -or $initial.revision -ne 0 -or $initial.notes.Count -ne 0) {

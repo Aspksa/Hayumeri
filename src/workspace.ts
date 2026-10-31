@@ -174,7 +174,68 @@ export function initWorkspaceUi(): void {
         : '<div class="workspace-empty">В этом списке задач пока нет.</div>')
       + '</div>';
   }
+  type NoSqlView = {
+    state: string; profile: string; message: string;
+    running: string[]; diskFreeGiB: number; updatedAt: string | null;
+  };
+  let nosqlState: NoSqlView | null = null;
+  const noSqlNames = [
+    ['mongodb', 'MongoDB', 'Документы'],
+    ['redis', 'Redis', 'Быстрые данные'],
+    ['neo4j', 'Neo4j', 'Граф связей'],
+    ['qdrant', 'Qdrant', 'Векторная база']
+  ] as const;
+  async function refreshNoSql(): Promise<void> {
+    if (route !== 'system') return;
+    try {
+      const response = await fetch('/api/nosql/status', { cache: 'no-store' });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const result: unknown = await response.json();
+      if (!result || typeof result !== 'object') throw new Error('Некорректный статус.');
+      const item = result as Record<string, unknown>;
+      nosqlState = {
+        state: typeof item.state === 'string' ? item.state : 'error',
+        profile: item.profile === 'growth' ? 'growth' : 'balanced',
+        message: typeof item.message === 'string' ? item.message : 'Состояние неизвестно.',
+        running: Array.isArray(item.running) ? item.running.filter((v): v is string => typeof v === 'string') : [],
+        diskFreeGiB: typeof item.diskFreeGiB === 'number' ? item.diskFreeGiB : -1,
+        updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : null
+      };
+    } catch {
+      nosqlState = {
+        state: 'error', profile: 'balanced',
+        message: 'Не удалось получить состояние NoSQL. Локальный сайт работает отдельно от Docker.',
+        running: [], diskFreeGiB: -1, updatedAt: null
+      };
+    }
+    if (route === 'system') render();
+  }
+  function renderSystem(): string {
+    const item = nosqlState;
+    const running = item?.running ?? [];
+    const state = item?.state ?? 'pending';
+    const good = state === 'running' && running.length === 4;
+    const heading = good ? '4 контейнера запущены' : state === 'pending' || state === 'starting' || state === 'docker-starting'
+      ? 'Автоматическая подготовка' : 'Требуется внимание';
+    return sectionHeader('Система', 'Четыре NoSQL-базы управляются автоматически после запуска Hayumeri. Состояние Docker и ресурсов отображается без вымышленных показателей.', 'ИНФРАСТРУКТУРА / АВТОПИЛОТ')
+      + '<section class="system-note nosql-panel" aria-label="Автоматическое управление NoSQL">'
+      + '<span class="workspace-eyebrow">NO-SQL / АВТОМАТИЧЕСКИЙ РЕЖИМ</span>'
+      + '<h2>' + heading + '</h2>'
+      + '<p role="status" aria-live="polite">' + escapeHtml(item?.message ?? 'Получение сведений о Docker и базах…') + '</p>'
+      + '<div class="nosql-metadata"><span>Режим памяти: <strong>' + escapeHtml(item?.profile ?? 'определяется') + '</strong></span>'
+      + '<span>Диск проекта: <strong>' + (item && item.diskFreeGiB >= 0 ? item.diskFreeGiB.toFixed(1) + ' ГиБ свободно' : 'не измерен') + '</strong></span>'
+      + '<span>Проверка: <strong>' + (item?.updatedAt ? escapeHtml(formatDate(item.updatedAt)) : 'ожидается') + '</strong></span></div>'
+      + '<div class="nosql-service-grid">' + noSqlNames.map(([key, name, purpose]) =>
+        '<div class="nosql-service"><span class="nosql-service-dot' + (running.includes(key) ? ' active' : '') + '" aria-hidden="true"></span>'
+        + '<div><strong>' + name + '</strong><small>' + purpose + '</small></div>'
+        + '<span class="nosql-service-label">' + (running.includes(key) ? 'Контейнер запущен' : 'Не подтверждён') + '</span></div>'
+      ).join('') + '</div>'
+      + '<p class="nosql-disclaimer">Статус «Контейнер запущен» не означает, что авторизация и запросы уже проверены. На ноутбуке с 16 ГБ RAM применяется экономный профиль, увеличение памяти допускается только при достаточном запасе.</p>'
+      + '<button type="button" class="gold-button" data-action="open-update">Обновления GitHub</button>'
+      + '</section>';
+  }
   function renderFuture(): string {
+    if (route === 'system') return renderSystem();
     const descriptions: Record<Exclude<Route,'home'|'notes'|'tasks'>, { lead: string; details: string[] }> = {
       knowledge: { lead: 'Библиотека документов, редактор и полнотекстовый поиск.', details: ['Дерево папок и файлов','Просмотр источников','Редактор документов'] },
       memory: { lead: 'Долговременные факты с проверяемыми источниками.', details: ['Хронология памяти','Источники и точность','Связь с разговорами'] },
@@ -193,11 +254,7 @@ export function initWorkspaceUi(): void {
       + '</div></div>'
       + '<div class="future-grid">' + item.details.map((detail, index) =>
         '<div class="future-tile"><span>0' + (index + 1) + '</span><strong>' + escapeHtml(detail)
-        + '</strong><small>Запланировано</small></div>').join('') + '</div>'
-      + (route === 'system'
-        ? '<div class="system-note"><p>Сейчас работает локальный сайт и модуль обновлений. Четыре NoSQL-сервиса управляются отдельно через Hayumeri-DB.bat; их состояние здесь не проверяется.</p>'
-          + '<button type="button" class="gold-button" data-action="open-update">Открыть обновления GitHub</button></div>'
-        : '');
+        + '</strong><small>Запланировано</small></div>').join('') + '</div>';
   }
   function render(): void {
     if (route === 'home') return;
@@ -222,6 +279,7 @@ export function initWorkspaceUi(): void {
     renderNavigation();
     render();
     if (next === 'notes' || next === 'tasks') void ensureLoaded();
+    if (next === 'system') void refreshNoSql();
     if (next === 'home' && (location.hash === '#foundation' || location.hash === '#platform')) {
       requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView());
     } else {
@@ -366,5 +424,6 @@ export function initWorkspaceUi(): void {
       void persist({ ...data, tasks }, 'Задача удалена.');
     }
   });
+  window.setInterval(() => { if (route === 'system') void refreshNoSql(); }, 30000);
   requestRoute();
 }

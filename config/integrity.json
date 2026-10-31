@@ -27,8 +27,20 @@
       "sha256": "8a42dfb3a86eb78bb2682ff4eab24201b2be79669ea4b37479a23db71b9eabb2"
     },
     {
+      "path": "scripts/nosql-auto.ps1",
+      "sha256": "cd693a1a6ced4bec23c2cb7ad610d83025948beebb9ae48b329f30db715287e7"
+    },
+    {
+      "path": "scripts/nosql-status-api.ts",
+      "sha256": "6d2f39c92c4194ea886e747d240b2ab2251eeedf6bb4d3710bf0d60a93ed5717"
+    },
+    {
       "path": "scripts/preferences-api.ts",
       "sha256": "42eeb3f462b5e57854bd61df77ce85b8fb368b6e2b49548686043a5a96eb737e"
+    },
+    {
+      "path": "scripts/start.ps1",
+      "sha256": "60bf62b30714819288567f4cf74c071a30cf7910370e00a0eaaf4cb6b61044e5"
     },
     {
       "path": "scripts/update-api.ts",
@@ -40,11 +52,15 @@
     },
     {
       "path": "src/main.ts",
-      "sha256": "cd07cfb89b4e3f0c2ab46def6b8945af869dd0c6ad03461d451df1d6b09d3ad5"
+      "sha256": "a0838f19e0fa87b34955e6bdcf232cefa9b5ae3f8eab55e7b08ca24f19f1b35c"
     },
     {
       "path": "src/monitor.css",
       "sha256": "98bd7137424bc15de267f7068c56d535ae9e8b5edae6f0f34028a2b38f2501a3"
+    },
+    {
+      "path": "src/nosql.css",
+      "sha256": "803cc2e9d9500348854a41dd678e94edc6b599f6605ff2fa2d79b4c3c01214e3"
     },
     {
       "path": "src/personalization.css",
@@ -68,7 +84,7 @@
     },
     {
       "path": "src/workspace.ts",
-      "sha256": "886b3c4067cdac2b85bea9293830c54676f5eb389db0925aaff2931afbac7676"
+      "sha256": "cf02338b8543eaa2ca47e8c79088f96defa1bbd18ba877264677fb940d814dfc"
     },
     {
       "path": "tsconfig.json",
@@ -76,7 +92,7 @@
     },
     {
       "path": "vite.config.ts",
-      "sha256": "59d944c99655923025741cbbc6ddeb63dd36ae005566e482449bfa1a7268bf97"
+      "sha256": "e57561b179e2b274e92059b9b68b13df571af43b722669ad589905fc6b93551e"
     }
   ]
 }

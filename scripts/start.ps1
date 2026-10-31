@@ -142,6 +142,28 @@ function Invoke-LoggedCommand([string] $executable, [string[]] $arguments) {
     }
 }
 
+function Start-NoSqlAutopilot {
+    if ($env:HAYUMERI_NOSQL_DISABLE -eq '1' -or $env:CI -eq 'true') {
+        Write-Log '[NO-SQL] Автоматика отключена для тестового окружения.'
+        return
+    }
+    $script = Join-Path $PSScriptRoot 'nosql-auto.ps1'
+    if (-not (Test-Path -LiteralPath $script -PathType Leaf)) {
+        Write-Log '[ПРЕДУПРЕЖДЕНИЕ] Автоматика NoSQL не установлена; сайт продолжает работать.'
+        return
+    }
+    try {
+        $ps = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $ticks = (Get-Process -Id $PID).StartTime.ToUniversalTime().Ticks
+        $arguments = @('-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass',
+            '-File',('"' + $script + '"'),'-ParentPid',([string]$PID),'-ParentStartTicks',([string]$ticks))
+        $worker = Start-Process -FilePath $ps -ArgumentList $arguments -WorkingDirectory $root -PassThru -WindowStyle Hidden
+        Write-Log ('[NO-SQL] Автоматическая подготовка баз запущена в фоне (PID ' + $worker.Id + ').')
+    } catch {
+        Write-Log ('[ПРЕДУПРЕЖДЕНИЕ] Не удалось запустить NoSQL-автоматику: ' + $_.Exception.Message)
+    }
+}
+
 # Проверки отделены от механизма скачивания Node.js.
 . (Join-Path $PSScriptRoot 'launcher-helpers.ps1')
 $mutex = $null
@@ -264,6 +286,7 @@ try {
                 Set-LaunchStatus 'РАБОТАЕТ' "Сайт доступен: $address" $address
                 Save-LaunchMetrics $timings 'ready' $address
                 $metricsSaved = $true
+                Start-NoSqlAutopilot
                 if ($config.openBrowser -and $env:CI -ne 'true') {
                     try { Start-Process -FilePath $address -ErrorAction Stop | Out-Null }
                     catch { Write-Log "[ПРЕДУПРЕЖДЕНИЕ] Не удалось открыть браузер. Адрес: $address" }
