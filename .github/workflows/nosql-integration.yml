@@ -1,0 +1,70 @@
+name: NoSQL four-engine integration
+
+on:
+  pull_request:
+    paths:
+      - 'docker-compose.nosql.yml'
+      - 'Hayumeri-DB.bat'
+      - 'scripts/databases.ps1'
+      - 'server/**'
+      - 'tests/nosql.test.mjs'
+      - '.github/workflows/nosql-integration.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docker-compose.nosql.yml'
+      - 'server/**'
+      - '.github/workflows/nosql-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  four-databases:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Create local-only test passwords
+        run: |
+          python3 - <<'PY'
+          import secrets
+          from pathlib import Path
+          names = ["MONGO_PASSWORD", "REDIS_PASSWORD", "NEO4J_PASSWORD", "QDRANT_API_KEY"]
+          Path(".env.nosql").write_text("".join(f"{k}={secrets.token_hex(32)}\n" for k in names), encoding="ascii")
+          PY
+      - name: Validate Compose and start four real databases
+        run: |
+          docker compose --env-file .env.nosql -f docker-compose.nosql.yml config --quiet
+          docker compose --env-file .env.nosql -f docker-compose.nosql.yml up -d
+      - name: Install TypeScript database clients
+        run: |
+          npm install --prefix server --no-audit --no-fund
+          npm --prefix server run check:types
+      - name: Verify authenticated database connections
+        shell: bash
+        run: |
+          ready=0
+          for attempt in $(seq 1 18); do
+            if npm --prefix server run db:check; then
+              ready=1
+              break
+            fi
+            sleep 10
+          done
+          if [ "$ready" -ne 1 ]; then
+            echo "At least one database did not become ready"
+            exit 1
+          fi
+      - name: Read-write-delete smoke tests on each database
+        run: npm --prefix server run db:smoke
+      - name: Troubleshooting container states
+        if: always()
+        run: |
+          docker compose --env-file .env.nosql -f docker-compose.nosql.yml ps || true
+          docker compose --env-file .env.nosql -f docker-compose.nosql.yml logs --tail 35 || true
+          docker compose --env-file .env.nosql -f docker-compose.nosql.yml down || true
