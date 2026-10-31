@@ -44,7 +44,7 @@
     },
     {
       "path": "scripts/start.ps1",
-      "sha256": "60bf62b30714819288567f4cf74c071a30cf7910370e00a0eaaf4cb6b61044e5"
+      "sha256": "8241879b1dc0962ffa25e1f52914785cef404616ba837f300a47e66926217ac1"
     },
     {
       "path": "scripts/update-api.ts",
