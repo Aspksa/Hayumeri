@@ -28,7 +28,7 @@
     },
     {
       "path": "scripts/nosql-auto.ps1",
-      "sha256": "a162eaa9f99f13ee2bab2743a7120aff41f58922da5d4917b45350159228110d"
+      "sha256": "cd693a1a6ced4bec23c2cb7ad610d83025948beebb9ae48b329f30db715287e7"
     },
     {
       "path": "scripts/nosql-status-api.ts",
