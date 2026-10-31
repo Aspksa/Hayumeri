@@ -70,7 +70,8 @@ export function vectorClient(settings: DatabaseSettings): QdrantClient {
   return new QdrantClient({
     url: 'http://127.0.0.1:6333',
     apiKey: settings.qdrantApiKey,
-    checkCompatibility: false
+    checkCompatibility: false,
+    timeout: 5000
   });
 }
 
