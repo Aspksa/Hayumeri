@@ -161,6 +161,47 @@ try {
     for (const route of ['home', 'notes', 'tasks']) await audit(width, height, scale, route);
   }
   console.log(`Browser viewport checks succeeded: ${cases.length * 3} real-layout scenarios.`);
+  // Exercise actual UI interactions (not only CSS existence).
+  await setViewport(1366, 768, 1);
+  await send('Page.navigate', { url: url + '#notes' });
+  await waitFor("document.querySelector('.note-layout') && document.querySelectorAll('.workspace-nav-item').length === 10");
+  const start = await evaluate("Math.round(document.querySelector('.app-sidebar').getBoundingClientRect().width)");
+  await evaluate("document.querySelector('#sidebar-toggle').click()");
+  const collapsed = await evaluate("document.querySelector('.app-layout').dataset.sidebarCollapsed === 'true' && document.querySelector('.app-sidebar').getBoundingClientRect().width < 100");
+  assert.ok(collapsed, 'Sidebar did not collapse when its button was clicked');
+  await evaluate("document.querySelector('#sidebar-toggle').click()");
+  await waitFor("document.querySelector('.app-layout').dataset.sidebarCollapsed === 'false'");
+  const restored = await evaluate("Math.round(document.querySelector('.app-sidebar').getBoundingClientRect().width)");
+  assert.ok(restored >= start - 4, 'Sidebar did not expand to original width');
+
+  await evaluate("document.querySelector('#settings-trigger').click()");
+  assert.equal(await evaluate("document.querySelector('#preferences-dialog').open"), true,
+    'Preferences dialog did not open');
+  await evaluate(`(() => { const slider = document.querySelector('[data-setting="fontScale"]'); slider.value = '115'; slider.dispatchEvent(new Event('input',{bubbles:true})); return true })()`);
+  await waitFor("getComputedStyle(document.documentElement).getPropertyValue('--ui-font-scale').trim() === '1.15'");
+  await evaluate("document.querySelector('[data-close-settings]').click()");
+  await evaluate("document.querySelector('[data-pin-route=agents]').click()");
+  await waitFor("document.querySelector('[data-pin-route=agents]').getAttribute('aria-pressed') === 'true'");
+  await evaluate("document.querySelector('#command-trigger').click()");
+  assert.equal(await evaluate("document.querySelector('#command-dialog').open"), true,
+    'Command palette did not open');
+  await evaluate(`(() => {const q=document.querySelector('#command-query');q.value='Агенты';q.dispatchEvent(new Event('input',{bubbles:true}));return true})()`);
+  const match = await evaluate("document.querySelectorAll('.command-item').length === 1 && document.querySelector('.command-item').textContent.includes('Агенты')");
+  assert.ok(match, 'Command search did not filter workspace routes');
+  await evaluate("document.querySelector('[data-close-commands]').click()");
+  await sleep(1000);
+  const persisted = await evaluate("fetch('/api/preferences/data',{cache:'no-store'}).then(r=>r.json())");
+  assert.equal(persisted.sidebarCollapsed, false);
+  assert.equal(persisted.fontScale, 1.15);
+  assert.ok(persisted.pinned.includes('agents'), 'Pinned route not saved to .runtime');
+  assert.ok(persisted.revision >= 1, 'No preferences revision increment');
+
+  await send('Page.reload', { ignoreCache: true });
+  await waitFor("document.querySelector('#command-trigger') && document.querySelector('[data-pin-route=agents]') && getComputedStyle(document.documentElement).getPropertyValue('--ui-font-scale').trim() === '1.15'");
+  const reloadedPin = await evaluate("document.querySelector('[data-pin-route=agents]').getAttribute('aria-pressed')");
+  assert.equal(reloadedPin, 'true', 'Pinned workspace not restored after page reload');
+  console.log('PASS persisted settings, sidebar collapse, command filtering and pinned routes.');
+
 } finally {
   ws?.close();
   if (process.platform === 'win32') {
