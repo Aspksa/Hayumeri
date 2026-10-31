@@ -41,7 +41,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $folder = Join-Path $env:RUNNER_TEMP 'Hayumeri кириллица ! & test'
           New-Item -ItemType Directory -Force -Path $folder | Out-Null
-          foreach ($name in @('Hayumeri.bat', 'package.json', 'package-lock.json', 'index.html', 'tsconfig.json')) {
+          foreach ($name in @('Hayumeri.bat', 'package.json', 'package-lock.json', 'index.html', 'tsconfig.json', 'vite.config.ts')) {
             Copy-Item -LiteralPath $name -Destination $folder -ErrorAction Stop
           }
           foreach ($name in @('scripts', 'src', 'config')) {
@@ -108,7 +108,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $folder = Join-Path $env:RUNNER_TEMP 'Hayumeri negative tests'
           New-Item -ItemType Directory -Force -Path $folder | Out-Null
-          foreach ($name in @('Hayumeri.bat', 'package.json', 'index.html', 'tsconfig.json')) {
+          foreach ($name in @('Hayumeri.bat', 'package.json', 'index.html', 'tsconfig.json', 'vite.config.ts')) {
             Copy-Item -LiteralPath $name -Destination $folder
           }
           foreach ($name in @('config', 'scripts', 'src')) {
