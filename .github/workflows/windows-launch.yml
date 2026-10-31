@@ -30,6 +30,30 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Server driver dependencies failed to install' }
           npm --prefix server run check:types
           if ($LASTEXITCODE -ne 0) { throw 'Four-database TypeScript check failed' }
+      - name: Parse Windows PowerShell scripts without running them
+        shell: pwsh
+        run: |
+          foreach ($file in @('scripts/start.ps1', 'scripts/apply-update.ps1', 'scripts/launcher-helpers.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $file), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              foreach ($problem in $errors) {
+                Write-Host ("PARSE ERROR " + $file + " at line " + $problem.Extent.StartLineNumber + ": " + $problem.Message + " [near: " + $problem.Extent.Text + "]")
+              }
+              throw ('PowerShell parse errors in ' + $file)
+            }
+          }
+      - name: Verify PowerShell updater safety checks
+        shell: pwsh
+        run: |
+          & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/apply-update.ps1 -SelfTest
+          if ($LASTEXITCODE -ne 0) { throw 'Updater PowerShell self-test failed' }
+      - name: Verify exact GitHub archive and Git tree without installation
+        shell: pwsh
+        run: |
+          & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/apply-update.ps1 -Commit 152065f3c70cfdb523e8accb812ce3334942671c -VerifyOnly
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub archive verification failed' }
       - name: Verify NoSQL BAT command handling (without Docker)
         shell: pwsh
         run: |
@@ -80,6 +104,17 @@ jobs:
               Start-Sleep -Seconds 2
             }
             if (-not $ready) { throw 'Local web server did not become healthy in 120 seconds' }
+            $url = $status.address
+            $updateInfo = Invoke-RestMethod -Uri ($url + 'api/update/status') -TimeoutSec 5
+            if ($updateInfo.repository -ne 'Aspksa/Hayumeri' -or $updateInfo.version -ne '0.2.0' -or -not $updateInfo.canApply) {
+              throw 'Update status API is not working in BAT mode'
+            }
+            try {
+              Invoke-RestMethod -Uri ($url + 'api/update/apply') -Method Post -ContentType 'application/json' -Headers @{ 'X-Hayumeri-Action' = '1' } -Body '{"sha":"0000000000000000000000000000000000000000"}' -TimeoutSec 5
+              throw 'Cross-origin update without Origin header was accepted'
+            } catch {
+              if ($_.Exception.Message -eq 'Cross-origin update without Origin header was accepted') { throw }
+            }
             $metrics = Get-Content -LiteralPath (Join-Path $folder '.runtime/launch-metrics.json') -Raw | ConvertFrom-Json
             if ($metrics.result -ne 'ready' -or $metrics.milliseconds.total -lt 0) { throw 'Invalid launch metrics' }
             $portBlocker.Stop()
@@ -101,6 +136,43 @@ jobs:
             if (Test-Path -LiteralPath $stderr) { Get-Content -LiteralPath $stderr | Select-Object -Last 50 }
             $launcherLog = Join-Path $folder 'logs/launch.log'
             if (Test-Path -LiteralPath $launcherLog) { Get-Content -LiteralPath $launcherLog | Select-Object -Last 50 }
+          }
+      - name: Apply actual GitHub update in isolated Windows folder
+        shell: pwsh
+        env:
+          TARGET_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $folder = Join-Path $env:RUNNER_TEMP 'Hayumeri Upgrade кириллица ! & test'
+          New-Item -ItemType Directory -Force -Path $folder | Out-Null
+          foreach ($name in @('Hayumeri.bat','package.json','index.html','tsconfig.json','vite.config.ts')) {
+            Copy-Item -LiteralPath $name -Destination $folder -ErrorAction Stop
+          }
+          foreach ($name in @('config','scripts','src')) {
+            Copy-Item -LiteralPath $name -Destination $folder -Recurse -ErrorAction Stop
+          }
+          try {
+            & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $folder 'scripts/apply-update.ps1') -Commit $env:TARGET_COMMIT
+            if ($LASTEXITCODE -ne 0) { throw 'Updater failed to apply actual GitHub commit' }
+            $stateFile = Join-Path $folder '.runtime/update-state.json'
+            if (-not (Test-Path -LiteralPath $stateFile)) { throw 'Missing installed commit marker' }
+            $state = Get-Content -LiteralPath $stateFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($state.commit -ne $env:TARGET_COMMIT) { throw 'Installed commit was not saved' }
+            $result = Get-Content -LiteralPath (Join-Path $folder '.runtime/update-progress.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($result.state -ne 'ГОТОВО') { throw 'Update did not confirm health of new application' }
+            $backups = @(Get-ChildItem -LiteralPath (Join-Path $folder '.runtime/updates') -Directory -Filter 'backup-*')
+            if ($backups.Count -lt 1) { throw 'Updater did not create backup' }
+            Write-Host 'Real GitHub update and automatic restart succeeded.'
+          } finally {
+            $log = Join-Path $folder '.runtime/update.log'
+            if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 50 }
+            $status = Join-Path $folder '.runtime/launcher-status.json'
+            if (Test-Path -LiteralPath $status) {
+              $data = Get-Content -LiteralPath $status -Raw -Encoding UTF8 | ConvertFrom-Json
+              if ($data.processId -gt 0) {
+                & taskkill.exe /PID $data.processId /T /F 2>$null | Out-Null
+              }
+            }
           }
       - name: Detect corrupted source and invalid launcher settings
         shell: pwsh
