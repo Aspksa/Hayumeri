@@ -2,11 +2,12 @@ import { defineConfig } from 'vite';
 import { hayumeriUpdateApi } from './scripts/update-api';
 import { hayumeriWorkspaceApi } from './scripts/workspace-api';
 import { hayumeriPreferencesApi } from './scripts/preferences-api';
+import { hayumeriNoSqlStatusApi } from './scripts/nosql-status-api';
 
 // Launcher writes status and timing JSON while Vite is running.
 // Chokidar on Windows can emit EBUSY when watching these transient files.
 export default defineConfig({
-  plugins: [hayumeriUpdateApi(), hayumeriWorkspaceApi(), hayumeriPreferencesApi()],
+  plugins: [hayumeriUpdateApi(), hayumeriWorkspaceApi(), hayumeriPreferencesApi(), hayumeriNoSqlStatusApi()],
   server: {
     watch: {
       ignored: [
