@@ -35,11 +35,14 @@ jobs:
           foreach ($name in @('Hayumeri.bat', 'package.json', 'package-lock.json', 'index.html')) {
             Copy-Item -LiteralPath $name -Destination $folder -ErrorAction Stop
           }
-          foreach ($name in @('scripts', 'src')) {
+          foreach ($name in @('scripts', 'src', 'config')) {
             Copy-Item -LiteralPath $name -Destination $folder -Recurse -ErrorAction Stop
           }
           $stdout = Join-Path $env:RUNNER_TEMP 'hayumeri-stdout.log'
           $stderr = Join-Path $env:RUNNER_TEMP 'hayumeri-stderr.log'
+          # Hold the default port to verify automatic fallback and the reported URL.
+          $portBlocker = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 5173)
+          $portBlocker.Start()
           $main = Start-Process -FilePath $env:ComSpec -ArgumentList @('/D', '/C', 'Hayumeri.bat') -WorkingDirectory $folder -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
           try {
             $ready = $false
@@ -48,19 +51,29 @@ jobs:
               $launcherLog = Join-Path $folder 'logs/launch.log'
               if (Test-Path -LiteralPath $launcherLog) {
                 $logText = Get-Content -LiteralPath $launcherLog -Raw
-                if ($logText -match 'ERROR:') { throw 'BAT reported a startup error. See launcher log below.' }
+                if ($logText -match 'ERROR:|\[ОШИБКА\]') { throw 'BAT reported a startup error. See launcher log below.' }
               }
               if ($main.HasExited) { throw "BAT exited early with code $($main.ExitCode)" }
               try {
-                $response = Invoke-WebRequest -Uri 'http://127.0.0.1:5173/' -UseBasicParsing -TimeoutSec 2
-                if ($response.StatusCode -eq 200 -and $response.Content -match 'Hayumeri') {
-                  $ready = $true
-                  break
+                $statusFile = Join-Path $folder '.runtime/launcher-status.json'
+                if (Test-Path -LiteralPath $statusFile) {
+                  $status = Get-Content -LiteralPath $statusFile -Raw -Encoding UTF8 | ConvertFrom-Json
+                  if ($status.state -eq 'РАБОТАЕТ') {
+                    if ($status.address -eq 'http://127.0.0.1:5173/') { throw 'Occupied port 5173 was reused' }
+                    $response = Invoke-WebRequest -Uri $status.address -UseBasicParsing -TimeoutSec 2
+                    if ($response.StatusCode -eq 200 -and $response.Content -match 'Hayumeri') {
+                      $ready = $true
+                      break
+                    }
+                  }
                 }
               } catch { }
               Start-Sleep -Seconds 2
             }
             if (-not $ready) { throw 'Local web server did not become healthy in 120 seconds' }
+            $metrics = Get-Content -LiteralPath (Join-Path $folder '.runtime/launch-metrics.json') -Raw | ConvertFrom-Json
+            if ($metrics.result -ne 'ready' -or $metrics.milliseconds.total -lt 0) { throw 'Invalid launch metrics' }
+            $portBlocker.Stop()
 
             $second = Start-Process -FilePath $env:ComSpec -ArgumentList @('/D', '/C', 'Hayumeri.bat') -WorkingDirectory $folder -PassThru
             if (-not $second.WaitForExit(15000)) {
@@ -73,9 +86,39 @@ jobs:
             if ($content -notmatch 'already starting or running') { throw 'Missing duplicate-instance protection log' }
             Write-Host 'BAT smoke test succeeded.'
           } finally {
+            $portBlocker.Stop()
             & taskkill.exe /PID $main.Id /T /F 2>$null | Out-Null
             if (Test-Path -LiteralPath $stdout) { Get-Content -LiteralPath $stdout | Select-Object -Last 50 }
             if (Test-Path -LiteralPath $stderr) { Get-Content -LiteralPath $stderr | Select-Object -Last 50 }
             $launcherLog = Join-Path $folder 'logs/launch.log'
             if (Test-Path -LiteralPath $launcherLog) { Get-Content -LiteralPath $launcherLog | Select-Object -Last 50 }
           }
+      - name: Detect corrupted source and invalid launcher settings
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $folder = Join-Path $env:RUNNER_TEMP 'Hayumeri negative tests'
+          New-Item -ItemType Directory -Force -Path $folder | Out-Null
+          foreach ($name in @('Hayumeri.bat', 'package.json', 'index.html', 'tsconfig.json')) {
+            Copy-Item -LiteralPath $name -Destination $folder
+          }
+          foreach ($name in @('config', 'scripts', 'src')) {
+            Copy-Item -LiteralPath $name -Destination $folder -Recurse
+          }
+          $launcher = Join-Path $folder 'scripts/start.ps1'
+          Add-Content -LiteralPath (Join-Path $folder 'src/main.ts') -Value 'corrupted'
+          & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $launcher
+          if ($LASTEXITCODE -eq 0) { throw 'Corrupted source was accepted' }
+          $status = Get-Content -LiteralPath (Join-Path $folder '.runtime/launcher-status.json') -Raw | ConvertFrom-Json
+          if ($status.state -ne 'ОШИБКА' -or $status.message -notmatch 'Контрольная сумма') {
+            throw 'Missing checksum diagnostic'
+          }
+          Copy-Item -LiteralPath 'src/main.ts' -Destination (Join-Path $folder 'src/main.ts') -Force
+          '{"preferredPort":"broken"}' | Set-Content -LiteralPath (Join-Path $folder 'config/launcher.json') -Encoding UTF8
+          & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $launcher
+          if ($LASTEXITCODE -eq 0) { throw 'Invalid config was accepted' }
+          $status = Get-Content -LiteralPath (Join-Path $folder '.runtime/launcher-status.json') -Raw | ConvertFrom-Json
+          if ($status.state -ne 'ОШИБКА' -or $status.message -notmatch 'конфигурации|поле|настройка') {
+            throw 'Missing config diagnostic'
+          }
+          Write-Host 'Negative preflight tests succeeded.'
