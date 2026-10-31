@@ -1,0 +1,16 @@
+{
+  "name": "hayumeri",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3",
+    "vite": "6.3.5"
+  }
+}

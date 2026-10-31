@@ -1,0 +1,20 @@
+:root { font-family: Inter, 'Segoe UI', system-ui, sans-serif; color: #f5f1e9; background: #111722; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 70% 16%, #263649, #111722 56%); }
+.shell { min-height: 100vh; width: min(1120px, calc(100% - 48px)); margin: auto; display: flex; flex-direction: column; }
+.topbar { display: flex; justify-content: space-between; align-items: center; min-height: 104px; gap: 12px; border-bottom: 1px solid #ffffff16; }
+.brand { letter-spacing: .22em; font-size: 13px; font-weight: 750; }
+.brand-mark { color: #d0a96a; font-size: 25px; vertical-align: -2px; margin-right: 10px; }
+.version { color: #93a0b0; font-size: 12px; }
+.hero { margin: auto 0; max-width: 800px; padding: 90px 0; }
+.eyebrow { color: #d1b98b; letter-spacing: .08em; font-size: 13px; display: inline-flex; align-items: center; gap: 11px; }
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #81c9a1; box-shadow: 0 0 15px #81c9a177; }
+h1 { font-size: clamp(40px, 6.7vw, 76px); line-height: 1.12; letter-spacing: -.06em; margin: 27px 0 22px; font-weight: 650; }
+h1 em { font-style: normal; color: #d0ab71; }
+p { color: #aeb7c5; font-size: 17px; line-height: 1.8; max-width: 650px; }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 55px; }
+.fact { border: 1px solid #ffffff21; border-radius: 14px; padding: 22px; background: #ffffff08; min-height: 112px; }
+.fact span { display: block; font-size: 12px; color: #8e9aac; margin-bottom: 16px; }
+.fact strong { font-size: 17px; font-weight: 600; }
+footer { padding: 27px 0; color: #7e8b9c; font-size: 12px; border-top: 1px solid #ffffff16; }
+@media (max-width: 600px) { .shell { width: calc(100% - 32px); } .topbar { min-height: 78px; } .version { text-align: right; } .hero { padding: 64px 0; } .facts { grid-template-columns: 1fr; margin-top: 32px; } .fact { min-height: 85px; padding: 17px; } .fact span { margin-bottom: 8px; } }
