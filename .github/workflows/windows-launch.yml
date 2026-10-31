@@ -1,0 +1,76 @@
+name: Windows launcher checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  windows-launch:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install and verify project
+        shell: pwsh
+        run: |
+          npm install --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'npm install failed' }
+          npm test
+          if ($LASTEXITCODE -ne 0) { throw 'Unit tests failed' }
+          npm run build
+          if ($LASTEXITCODE -ne 0) { throw 'TypeScript or Vite build failed' }
+      - name: Double-click style BAT smoke test (Unicode, spaces, exclamation, ampersand)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $folder = Join-Path $env:RUNNER_TEMP 'Hayumeri кириллица ! & test'
+          New-Item -ItemType Directory -Force -Path $folder | Out-Null
+          foreach ($name in @('Hayumeri.bat', 'package.json', 'package-lock.json', 'index.html')) {
+            Copy-Item -LiteralPath $name -Destination $folder -ErrorAction Stop
+          }
+          foreach ($name in @('scripts', 'src')) {
+            Copy-Item -LiteralPath $name -Destination $folder -Recurse -ErrorAction Stop
+          }
+          $stdout = Join-Path $env:RUNNER_TEMP 'hayumeri-stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'hayumeri-stderr.log'
+          $main = Start-Process -FilePath $env:ComSpec -ArgumentList @('/D', '/C', 'Hayumeri.bat') -WorkingDirectory $folder -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 60; $i++) {
+              $main.Refresh()
+              if ($main.HasExited) { throw "BAT exited early with code $($main.ExitCode)" }
+              try {
+                $response = Invoke-WebRequest -Uri 'http://127.0.0.1:5173/' -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200 -and $response.Content -match 'Hayumeri') {
+                  $ready = $true
+                  break
+                }
+              } catch { }
+              Start-Sleep -Seconds 2
+            }
+            if (-not $ready) { throw 'Local web server did not become healthy in 120 seconds' }
+
+            $second = Start-Process -FilePath $env:ComSpec -ArgumentList @('/D', '/C', 'Hayumeri.bat') -WorkingDirectory $folder -PassThru
+            if (-not $second.WaitForExit(15000)) {
+              & taskkill.exe /PID $second.Id /T /F | Out-Null
+              throw 'Duplicate launch did not exit promptly'
+            }
+            if ($second.ExitCode -ne 0) { throw "Duplicate launch failed: $($second.ExitCode)" }
+            $launcherLog = Join-Path $folder 'logs/launch.log'
+            $content = Get-Content -LiteralPath $launcherLog -Raw
+            if ($content -notmatch 'already starting or running') { throw 'Missing duplicate-instance protection log' }
+            Write-Host 'BAT smoke test succeeded.'
+          } finally {
+            & taskkill.exe /PID $main.Id /T /F 2>$null | Out-Null
+            if (Test-Path -LiteralPath $stdout) { Get-Content -LiteralPath $stdout | Select-Object -Last 50 }
+            if (Test-Path -LiteralPath $stderr) { Get-Content -LiteralPath $stderr | Select-Object -Last 50 }
+            $launcherLog = Join-Path $folder 'logs/launch.log'
+            if (Test-Path -LiteralPath $launcherLog) { Get-Content -LiteralPath $launcherLog | Select-Object -Last 50 }
+          }
