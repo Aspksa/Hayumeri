@@ -263,7 +263,16 @@ try {
                         throw 'Сервер запросил обновление, но отсутствует подтверждённое задание.'
                     }
                     $request = Get-Content -LiteralPath $updateRequest -Raw -Encoding UTF8 | ConvertFrom-Json
-                    if ([string]$request.commit -notmatch '^[a-f0-9]{40}
+                    if ([string]$request.commit -notmatch '^[a-f0-9]{40}$') {
+                        throw 'Запрос обновления содержит неверную версию.'
+                    }
+                    Remove-Item -LiteralPath $updateRequest -Force -ErrorAction SilentlyContinue
+                    Set-LaunchStatus 'ОБНОВЛЕНИЕ' 'Установщик GitHub готовит резервную копию и новую версию.'
+                    Write-Log '[ОБНОВЛЕНИЕ] Окно BAT закрывается штатно. Установщик запустит Hayumeri после завершения.'
+                    $exitCode = 0
+                    break
+                }
+                if ($server.ExitCode -ne 0) {
                     Write-ServerErrorTail $stdout $stderr
                     throw "Сервер завершился с кодом $($server.ExitCode)."
                 }
