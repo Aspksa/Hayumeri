@@ -19,6 +19,10 @@
       "sha256": "8e9528c6d80c24e9ec4385dbbd1155a61d95a759d1d0189048eb62b73fdd2973"
     },
     {
+      "path": "scripts/preferences-api.ts",
+      "sha256": "42eeb3f462b5e57854bd61df77ce85b8fb368b6e2b49548686043a5a96eb737e"
+    },
+    {
       "path": "scripts/update-api.ts",
       "sha256": "554ce56a203f61a35161f0a9dfc5fd7a84312e2482660a28745db543d48b8261"
     },
@@ -28,11 +32,19 @@
     },
     {
       "path": "src/main.ts",
-      "sha256": "dcf8154fb13a500e94bd8e1fd88b7dd20c717f3f39bf4dc573f2bf5e55709a05"
+      "sha256": "cd07cfb89b4e3f0c2ab46def6b8945af869dd0c6ad03461d451df1d6b09d3ad5"
     },
     {
       "path": "src/monitor.css",
       "sha256": "98bd7137424bc15de267f7068c56d535ae9e8b5edae6f0f34028a2b38f2501a3"
+    },
+    {
+      "path": "src/personalization.css",
+      "sha256": "b39bc76e6efbb1988f15d40cb1e390cf4640b9bb46d0f2f629abde3710cd4de9"
+    },
+    {
+      "path": "src/personalization.ts",
+      "sha256": "af48d3f06c7833831fc77730ed62b11a7239b6639fc2c09080161f1acfd6c3bb"
     },
     {
       "path": "src/style.css",
@@ -48,7 +60,7 @@
     },
     {
       "path": "src/workspace.ts",
-      "sha256": "2086e7db1c4a0026692b9f7f472fe17462a7b883fe10b728cf47c52b2e243638"
+      "sha256": "886b3c4067cdac2b85bea9293830c54676f5eb389db0925aaff2931afbac7676"
     },
     {
       "path": "tsconfig.json",
@@ -56,7 +68,7 @@
     },
     {
       "path": "vite.config.ts",
-      "sha256": "0423ccc8d5a91517d12e5e769b4d59e8ccf7175b1cca402db3abce21cd64a369"
+      "sha256": "59d944c99655923025741cbbc6ddeb63dd36ae005566e482449bfa1a7268bf97"
     }
   ]
 }
