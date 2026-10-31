@@ -34,7 +34,7 @@ test('server-only API checks GitHub and refuses cross-origin update commands', (
   assert.match(api, /Content-Type/);
   assert.match(api, /req\.headers\.origin/);
   assert.match(api, /HAYUMERI_LAUNCHER/);
-  assert.match(api, /'apply'/);
+  assert.match(api, /'\/apply'/);
   assert.match(api, /process\.exit\(75\)/);
 });
 
