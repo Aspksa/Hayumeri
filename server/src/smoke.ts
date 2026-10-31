@@ -60,4 +60,6 @@ async function main(): Promise<void> {
 main().catch(error => {
   console.error('[ОШИБКА] Проверка записи не прошла: ' + (error instanceof Error ? error.name : 'UnknownError'));
   process.exitCode = 1;
+}).finally(() => {
+  setImmediate(() => process.exit(process.exitCode ?? 0));
 });
