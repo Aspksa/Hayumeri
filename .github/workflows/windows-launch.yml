@@ -137,6 +137,43 @@ jobs:
             $launcherLog = Join-Path $folder 'logs/launch.log'
             if (Test-Path -LiteralPath $launcherLog) { Get-Content -LiteralPath $launcherLog | Select-Object -Last 50 }
           }
+      - name: Apply actual GitHub update in isolated Windows folder
+        shell: pwsh
+        env:
+          TARGET_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $folder = Join-Path $env:RUNNER_TEMP 'Hayumeri Upgrade кириллица ! & test'
+          New-Item -ItemType Directory -Force -Path $folder | Out-Null
+          foreach ($name in @('Hayumeri.bat','package.json','index.html','tsconfig.json','vite.config.ts')) {
+            Copy-Item -LiteralPath $name -Destination $folder -ErrorAction Stop
+          }
+          foreach ($name in @('config','scripts','src')) {
+            Copy-Item -LiteralPath $name -Destination $folder -Recurse -ErrorAction Stop
+          }
+          try {
+            & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $folder 'scripts/apply-update.ps1') -Commit $env:TARGET_COMMIT
+            if ($LASTEXITCODE -ne 0) { throw 'Updater failed to apply actual GitHub commit' }
+            $stateFile = Join-Path $folder '.runtime/update-state.json'
+            if (-not (Test-Path -LiteralPath $stateFile)) { throw 'Missing installed commit marker' }
+            $state = Get-Content -LiteralPath $stateFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($state.commit -ne $env:TARGET_COMMIT) { throw 'Installed commit was not saved' }
+            $result = Get-Content -LiteralPath (Join-Path $folder '.runtime/update-progress.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($result.state -ne 'ГОТОВО') { throw 'Update did not confirm health of new application' }
+            $backups = @(Get-ChildItem -LiteralPath (Join-Path $folder '.runtime/updates') -Directory -Filter 'backup-*')
+            if ($backups.Count -lt 1) { throw 'Updater did not create backup' }
+            Write-Host 'Real GitHub update and automatic restart succeeded.'
+          } finally {
+            $log = Join-Path $folder '.runtime/update.log'
+            if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 50 }
+            $status = Join-Path $folder '.runtime/launcher-status.json'
+            if (Test-Path -LiteralPath $status) {
+              $data = Get-Content -LiteralPath $status -Raw -Encoding UTF8 | ConvertFrom-Json
+              if ($data.processId -gt 0) {
+                & taskkill.exe /PID $data.processId /T /F 2>$null | Out-Null
+              }
+            }
+          }
       - name: Detect corrupted source and invalid launcher settings
         shell: pwsh
         run: |
