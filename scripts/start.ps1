@@ -235,7 +235,21 @@ try {
             # node.exe запускается непосредственно: vite.cmd некорректен в путях с амперсандом.
             $env:HAYUMERI_LAUNCHER = '1'
             $args = @(('"' + $viteJs + '"'), '--host', '127.0.0.1', '--strictPort', '--port', [string]$port)
-            $server = Start-Process -FilePath $nodeInfo.node -ArgumentList $args -WorkingDirectory $root -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+            # Vite CLI closes on stdin EOF when CI is not "true". Start-Process
+            # may leave its stdin closed even when a user launched the BAT.
+            # Scope CI=true ONLY to the spawned Vite process, not the launcher:
+            # the normal browser-opening preference still uses the original CI.
+            $originalCI = $env:CI
+            try {
+                $env:CI = 'true'
+                $server = Start-Process -FilePath $nodeInfo.node -ArgumentList $args -WorkingDirectory $root -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+            } finally {
+                if ($null -eq $originalCI) {
+                    Remove-Item -Path Env:CI -ErrorAction SilentlyContinue
+                } else {
+                    $env:CI = $originalCI
+                }
+            }
 
             $ready = $false
             while ($phase.Elapsed.TotalSeconds -lt $config.healthTimeoutSeconds) {
@@ -257,7 +271,16 @@ try {
                 Write-Log '[РАБОТАЕТ] Для остановки нажмите Ctrl+C.'
                 $server.WaitForExit()
                 $server.Refresh()
-                if ($server.ExitCode -eq 75) {
+                # In Windows PowerShell 5.1 an exited Start-Process handle can
+                # report a null ExitCode. Never display a blank code or
+                # silently treat an unknown termination as success.
+                $serverExitCode = $null
+                try { $serverExitCode = $server.ExitCode } catch { }
+                if ($null -eq $serverExitCode) {
+                    Write-ServerErrorTail $stdout $stderr
+                    throw 'Сервер завершился, но Windows не сообщил код выхода. Смотрите logs\\launch.log и logs\\vite-*.err.log.'
+                }
+                if ([int]$serverExitCode -eq 75) {
                     $updateRequest = Join-Path $runtime 'update-request.json'
                     if (-not (Test-Path -LiteralPath $updateRequest -PathType Leaf)) {
                         throw 'Сервер запросил обновление, но отсутствует подтверждённое задание.'
@@ -272,9 +295,9 @@ try {
                     $exitCode = 0
                     break
                 }
-                if ($server.ExitCode -ne 0) {
+                if ([int]$serverExitCode -ne 0) {
                     Write-ServerErrorTail $stdout $stderr
-                    throw "Сервер завершился с кодом $($server.ExitCode)."
+                    throw "Сервер завершился с кодом $serverExitCode."
                 }
                 Set-LaunchStatus 'ОСТАНОВЛЕНО' 'Сервер завершил работу.'
                 $exitCode = 0
