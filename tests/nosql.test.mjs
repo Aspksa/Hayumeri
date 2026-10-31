@@ -87,3 +87,56 @@ test('Vite does not watch launcher status JSON or database backend files', () =>
   assert.match(vite, /logs/);
   assert.match(vite, /server/);
 });
+
+
+test('balanced NoSQL profile increases room for growth without unlimited memory', () => {
+  const expected = {
+    HAYUMERI_MONGO_LIMIT: '1536m',
+    HAYUMERI_REDIS_LIMIT: '512m',
+    HAYUMERI_NEO4J_LIMIT: '2048m',
+    HAYUMERI_QDRANT_LIMIT: '2048m'
+  };
+  for (const [key, value] of Object.entries(expected)) {
+    assert.ok(compose.includes('${' + key + ':-' + value + '}'), key);
+  }
+  assert.match(compose, /\-\-wiredTigerCacheSizeGB/);
+  assert.match(compose, /HAYUMERI_MONGO_CACHE_GB:-0\.5/);
+  assert.match(compose, /HAYUMERI_REDIS_MAXMEMORY:-256mb/);
+  assert.match(compose, /--maxmemory-policy noeviction/);
+  assert.doesNotMatch(compose, /allkeys-lru/);
+  assert.match(compose, /HAYUMERI_NEO4J_HEAP:-768m/);
+  assert.match(compose, /HAYUMERI_NEO4J_PAGECACHE:-512m/);
+  // Persistent database data must never be silently evicted.
+  assert.match(compose, /--appendonly yes/);
+});
+
+test('growth profile is explicit, persisted only after successful Compose startup', () => {
+  const script = ps.toString('utf8');
+  assert.match(script, /Get-ResourceProfile/);
+  assert.match(script, /Save-ResourceProfile/);
+  assert.match(script, /Set-ResourceEnvironment/);
+  assert.match(script, /Assert-AvailableMemory/);
+  assert.match(script, /\$gib -lt 9/);
+  assert.match(script, /'balanced','growth'/);
+  assert.match(script, /HAYUMERI_MONGO_LIMIT = '2048m'/);
+  assert.match(script, /HAYUMERI_NEO4J_LIMIT = '2560m'/);
+  assert.match(script, /HAYUMERI_QDRANT_LIMIT = '2560m'/);
+  assert.match(script, /HAYUMERI_REDIS_LIMIT = '640m'/);
+  assert.match(script, /\[IO\.File\]::Replace/);
+  assert.match(script, /nosql-profile\.json/);
+  assert.match(script, /nosql-profile\.previous\.json/);
+  // The order is important: never save the new resource profile until Docker accepts it.
+  const growth = script.slice(script.indexOf("    'growth' {"));
+  assert.ok(growth.indexOf("Invoke-Compose -Arguments @('up','-d')") < growth.indexOf('Save-ResourceProfile $activeProfile'));
+  assert.match(script, /'stats' \{ Show-Resources/);
+  assert.doesNotMatch(script, /docker\s+volume\s+rm|down\s+-v|down\s+--volumes/);
+});
+
+test('database resource profile can be inspected without Docker or revealing credentials', () => {
+  const script = ps.toString('utf8');
+  const segment = script.slice(script.indexOf("if ($Action -eq 'help')"), script.indexOf("if (-not (Test-Path -LiteralPath $compose"));
+  assert.ok(segment.includes("if ($Action -eq 'resources')"), 'resources action must run before credential checks');
+  assert.ok(segment.includes('exit 0'));
+  assert.match(script, /Get-Content -LiteralPath \$profileFile -Raw -Encoding UTF8/);
+  assert.match(script, /Неверный формат|Неизвестный профиль/);
+});
