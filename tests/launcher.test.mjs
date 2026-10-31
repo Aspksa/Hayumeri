@@ -28,6 +28,7 @@ test('portable Node.js is verified, pinned and downloaded over HTTPS', () => {
   assert.match(launcher, /\$version = 'v24\.22\.2'/);
   assert.match(launcher, /https:\/\/nodejs\.org\/dist\/\$version/);
   assert.match(launcher, /Get-Sha256 \$zip/);
+  assert.doesNotMatch(launcher, /--version 2>\$null \| Select-Object -First 1/);
   assert.match(launcher, /SHA256]::Create/);
   assert.match(launcher, /SHASUMS256\.txt/);
   assert.match(launcher, /Get-WithRetry/);
