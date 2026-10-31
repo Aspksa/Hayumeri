@@ -28,7 +28,7 @@
     },
     {
       "path": "scripts/nosql-auto.ps1",
-      "sha256": "3721b0eec28abb9d918e24aff0a9f6a4ff01e1adfc9fc076cb13b1911cb645fe"
+      "sha256": "a162eaa9f99f13ee2bab2743a7120aff41f58922da5d4917b45350159228110d"
     },
     {
       "path": "scripts/nosql-status-api.ts",
@@ -84,7 +84,7 @@
     },
     {
       "path": "src/workspace.ts",
-      "sha256": "4ca5322d537b2b5182ef484cfe55daa6a78ea4f4059d0f074566aaa8998dc957"
+      "sha256": "cf02338b8543eaa2ca47e8c79088f96defa1bbd18ba877264677fb940d814dfc"
     },
     {
       "path": "tsconfig.json",
