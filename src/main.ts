@@ -1,8 +1,10 @@
 import './style.css';
 import './workspace.css';
 import './monitor.css';
+import './personalization.css';
 import { initUpdateUi } from './update-ui';
 import { initWorkspaceUi } from './workspace';
+import { initPersonalizationUi } from './personalization';
 import packageManifest from '../package.json';
 
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -21,6 +23,9 @@ app.innerHTML = `
         <a href="#foundation">Технологии</a>
       </nav>
       <div class="topbar-actions">
+        <button class="header-control" id="sidebar-toggle" type="button" aria-controls="workspace-navigation" aria-expanded="true" aria-label="Свернуть боковое меню" title="Свернуть боковое меню (Ctrl+B)">☰</button>
+        <button class="header-control header-command" id="command-trigger" type="button" title="Команды и разделы (Ctrl+K)" aria-label="Открыть поиск команд"><span aria-hidden="true">⌕</span><span class="header-command-label">Поиск</span><kbd>Ctrl K</kbd></button>
+        <button class="header-control" id="settings-trigger" type="button" aria-label="Настройки интерфейса" title="Настройки интерфейса (Ctrl+,)">⚙</button>
         <span class="version">v${packageManifest.version}</span>
         <button class="update-trigger" id="update-trigger" type="button" aria-label="Обновления проекта" title="Обновления GitHub">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -35,6 +40,7 @@ app.innerHTML = `
       <aside class="app-sidebar" aria-label="Рабочие пространства">
         <div class="sidebar-intro"><span class="sidebar-overline">H / WORKSPACE</span><strong>Пространства</strong><small>Всё необходимое рядом</small></div>
         <nav class="workspace-navigation" id="workspace-navigation" aria-label="Выбор рабочего раздела"></nav>
+        <div id="sidebar-resize" class="sidebar-resize" role="separator" tabindex="0" aria-label="Изменить ширину боковой панели" aria-orientation="vertical" aria-valuemin="206" aria-valuemax="340" aria-valuenow="232"></div>
         <div class="sidebar-footer"><span class="sidebar-status-dot" aria-hidden="true"></span><span>Локальное приложение<br><small>Заметки и задачи сохраняются в .runtime</small></span></div>
       </aside>
       <main id="main-content" class="shell">
@@ -121,3 +127,4 @@ app.innerHTML = `
 
 initUpdateUi();
 initWorkspaceUi();
+initPersonalizationUi();

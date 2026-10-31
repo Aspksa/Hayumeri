@@ -1,3 +1,4 @@
+import { getPreferences, setPreferences } from './personalization';
 type Note = { id: string; title: string; content: string; updatedAt: string };
 type Task = { id: string; text: string; done: boolean; createdAt: string };
 type WorkspaceData = { schema: 1; revision: number; notes: Note[]; tasks: Task[] };
@@ -96,14 +97,21 @@ export function initWorkspaceUi(): void {
     }
   }
   function renderNavigation(): void {
-    navigation.innerHTML = routeKeys.map(key => {
+    const pinned = getPreferences().pinned;
+    const ordered = [...routeKeys].sort((a, b) => Number(pinned.includes(b)) - Number(pinned.includes(a)));
+    navigation.innerHTML = ordered.map(key => {
       const item = routes[key];
       const active = route === key;
+      const fixed = pinned.includes(key);
       const badge = key === 'notes' || key === 'tasks' ? '<span class="nav-bullet" title="Работает локально"></span>' : '';
-      return '<a class="workspace-nav-item' + (active ? ' is-active' : '') + '" href="#'
-        + key + '" data-workspace="' + key + '"' + (active ? ' aria-current="page"' : '') + '>'
+      return '<div class="workspace-nav-row"><a class="workspace-nav-item' + (active ? ' is-active' : '') + '" href="#'
+        + key + '" data-workspace="' + key + '" title="' + escapeHtml(item.title) + '"' + (active ? ' aria-current="page"' : '') + '>'
         + '<span class="nav-icon" aria-hidden="true">' + item.icon + '</span>'
-        + '<span class="nav-name">' + item.title + '</span>' + badge + '</a>';
+        + '<span class="nav-name">' + item.title + '</span>' + badge + '</a>'
+        + '<button class="workspace-pin' + (fixed ? ' is-pinned' : '') + '" type="button" data-pin-route="' + key
+        + '" aria-label="' + (fixed ? 'Открепить: ' : 'Закрепить: ') + item.title
+        + '" aria-pressed="' + fixed + '" title="' + (fixed ? 'Открепить раздел' : 'Закрепить раздел') + '">'
+        + (fixed ? '★' : '☆') + '</button></div>';
     }).join('');
   }
 
@@ -132,7 +140,7 @@ export function initWorkspaceUi(): void {
         + '" data-action="select-note" data-id="' + escapeHtml(note.id) + '"><strong>'
         + escapeHtml(note.title || 'Без названия') + '</strong><span>' + formatDate(note.updatedAt) + '</span></button>').join('')
         : '<div class="empty-list">Заметок пока нет либо поиск не дал результатов.</div>')
-      + '</div></div><div class="note-editor">'
+      + '</div></div><div class="note-resize" role="separator" tabindex="0" aria-label="Изменить ширину списка заметок" aria-orientation="vertical" aria-valuemin="25" aria-valuemax="52" aria-valuenow="' + getPreferences().noteListPercent + '" title="Перетащить или использовать стрелки"></div><div class="note-editor">'
       + '<div class="editor-caption">РЕДАКТОР / ' + (selected ? 'СОХРАНЁННАЯ ЗАПИСЬ' : 'НОВАЯ ЗАПИСЬ') + '</div>'
       + '<label class="field-label" for="note-title">Название</label>'
       + '<input class="workspace-input" id="note-title" maxlength="200" placeholder="Название заметки" value="' + escapeHtml(selected?.title ?? '') + '">'
@@ -223,8 +231,52 @@ export function initWorkspaceUi(): void {
   function requestRoute(): void { navigate(currentRoute()); }
 
   navigation.addEventListener('click', event => {
+    const pin = (event.target as Element).closest<HTMLButtonElement>('[data-pin-route]');
+    if (pin) {
+      event.preventDefault();
+      window.dispatchEvent(new CustomEvent('hayumeri:toggle-pin', { detail: pin.dataset.pinRoute }));
+      return;
+    }
     const link = (event.target as Element).closest<HTMLAnchorElement>('[data-workspace]');
     if (link && link.dataset.workspace === route) event.preventDefault();
+  });
+  window.addEventListener('hayumeri:preferences-change', renderNavigation);
+  view.addEventListener('pointerdown', event => {
+    const handle = (event.target as Element).closest<HTMLElement>('.note-resize');
+    if (!handle || event.button !== 0 || window.innerWidth <= 760) return;
+    const layout = handle.closest<HTMLElement>('.note-layout')!;
+    const frame = layout.getBoundingClientRect();
+    handle.setPointerCapture(event.pointerId);
+    const move = (next: PointerEvent): void => {
+      const percent = Math.max(25, Math.min(52, Math.round(100 * (next.clientX - frame.left) / frame.width)));
+      setPreferences({ noteListPercent: percent }, false);
+      handle.setAttribute('aria-valuenow', String(percent));
+    };
+    const finish = (): void => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', finish);
+      handle.removeEventListener('pointercancel', finish);
+      setPreferences({ noteListPercent: getPreferences().noteListPercent });
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', finish);
+    handle.addEventListener('pointercancel', finish);
+    event.preventDefault();
+  });
+  view.addEventListener('keydown', event => {
+    const handle = (event.target as Element).closest<HTMLElement>('.note-resize');
+    if (handle && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+      event.preventDefault();
+      const next = Math.max(25, Math.min(52, getPreferences().noteListPercent + (event.key === 'ArrowRight' ? 2 : -2)));
+      setPreferences({ noteListPercent: next });
+      handle.setAttribute('aria-valuenow', String(next));
+    }
+  });
+  document.addEventListener('keydown', event => {
+    if (route === 'notes' && (event.ctrlKey || event.metaKey) && event.code === 'KeyS' && !event.altKey) {
+      event.preventDefault();
+      view.querySelector<HTMLButtonElement>('[data-action="save-note"]')?.click();
+    }
   });
   window.addEventListener('hashchange', requestRoute);
   window.addEventListener('beforeunload', event => {
