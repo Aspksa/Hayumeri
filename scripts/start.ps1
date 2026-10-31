@@ -32,19 +32,35 @@ function Get-WorkingNode([string] $directory, [switch] $allowPathNpm) {
     try {
         $version = [string] (& $exe --version 2>$null | Select-Object -First 1)
         $matched = [regex]::Match($version, '^v(\d+)\.(\d+)\.(\d+)$')
-        if ($LASTEXITCODE -ne 0 -or -not $matched.Success) { return $null }
+        $nodeExitCode = $LASTEXITCODE
+        if ($nodeExitCode -ne 0 -or -not $matched.Success) {
+            Write-Log "Node candidate rejected: $exe; version='$version'; exit=$nodeExitCode"
+            return $null
+        }
         $major = [int] $matched.Groups[1].Value
         $minor = [int] $matched.Groups[2].Value
-        if (-not ($major -eq 22 -and $minor -ge 12) -and $major -ne 24 -and $major -ne 26) { return $null }
+        if (-not ($major -eq 22 -and $minor -ge 12) -and $major -ne 24 -and $major -ne 26) {
+            Write-Log "Unsupported Node candidate: $exe; version=$version"
+            return $null
+        }
         $npm = Join-Path $directory 'npm.cmd'
         if (-not (Test-Path -LiteralPath $npm -PathType Leaf)) {
-            if (-not $allowPathNpm) { return $null }
+            if (-not $allowPathNpm) {
+                Write-Log "Missing npm.cmd next to Node.js: $exe"
+                return $null
+            }
             $command = Get-Command npm.cmd -CommandType Application -ErrorAction SilentlyContinue
-            if (-not $command) { return $null }
+            if (-not $command) {
+                Write-Log "npm.cmd not found on PATH for $exe"
+                return $null
+            }
             $npm = $command.Source
         }
         return @{ node = $exe; npm = $npm; version = $version; directory = $directory }
-    } catch { return $null }
+    } catch {
+        Write-Log "Node candidate check failed: $exe; $($_.Exception.Message)"
+        return $null
+    }
 }
 
 function Get-WithRetry([string] $uri, [string] $destination) {
@@ -150,7 +166,7 @@ try {
         $nodeInfo = Get-WorkingNode (Join-Path $runtime 'node')
         if (-not $nodeInfo) { $nodeInfo = Get-WorkingNode $portableDir }
         if (-not $nodeInfo) {
-            $systemNode = Get-Command node.exe -CommandType Application -ErrorAction SilentlyContinue
+            $systemNode = Get-Command node.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
             if ($systemNode) {
                 Write-Log "Found system node.exe: $($systemNode.Source)"
                 $nodeInfo = Get-WorkingNode (Split-Path -Parent $systemNode.Source) -allowPathNpm
