@@ -32,7 +32,7 @@
     },
     {
       "path": "scripts/update-api.ts",
-      "sha256": "f13371756056dfc39b8c119609920c1d8bddcfb5297e65bdb85bcb2f44d5bee4"
+      "sha256": "554ce56a203f61a35161f0a9dfc5fd7a84312e2482660a28745db543d48b8261"
     },
     {
       "path": "scripts/apply-update.ps1",
