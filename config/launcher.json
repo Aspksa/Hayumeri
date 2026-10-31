@@ -1,0 +1,7 @@
+{
+  "preferredPort": 5173,
+  "maxPort": 5192,
+  "healthTimeoutSeconds": 60,
+  "maxAttempts": 3,
+  "openBrowser": true
+}
