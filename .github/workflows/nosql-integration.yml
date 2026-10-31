@@ -49,8 +49,8 @@ jobs:
         shell: bash
         run: |
           ready=0
-          for attempt in $(seq 1 18); do
-            if npm --prefix server run db:check; then
+          for attempt in $(seq 1 12); do
+            if timeout 20s npm --prefix server run db:check; then
               ready=1
               break
             fi
