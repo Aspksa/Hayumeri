@@ -1,4 +1,4 @@
-﻿param([int]$ParentPid, [long]$ParentStartTicks)
+﻿param([Parameter(Mandatory=$true)][int]$ParentPid, [Parameter(Mandatory=$true)][long]$ParentStartTicks)
 # Background NoSQL manager for Windows PowerShell 5.1.
 # Never blocks the web launcher; never installs Docker or deletes volumes.
 $ErrorActionPreference = 'Stop'
@@ -208,7 +208,7 @@ try {
           $message='Все 4 контейнера запущены; проверка подключений выполняется отдельно.'
           if ($disk -ge 0 -and $disk -lt 10) { $message+=' Свободно менее 10 ГиБ на диске проекта.' }
           Write-State 'running' $message $profile $running $disk
-          if (Should-Grow $docker $available $profile $running ([ref]$highCycles)) {
+          if (($disk -lt 0 -or $disk -ge 10) -and (Should-Grow $docker $available $profile $running ([ref]$highCycles))) {
             Write-State 'scaling' 'Три проверки подряд показали высокую загрузку памяти. Переключаемся на growth.' $profile $running $disk
             if (Start-Stack 'growth') { $highCycles=0 }
           }
