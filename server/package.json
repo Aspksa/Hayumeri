@@ -6,7 +6,8 @@
   "scripts": {
     "check:types": "tsc -p tsconfig.json --noEmit",
     "db:check": "tsx src/check.ts",
-    "db:smoke": "tsx src/smoke.ts"
+    "db:smoke": "tsx src/smoke.ts",
+    "memory:smoke": "tsx src/vector-memory-smoke.ts"
   },
   "dependencies": {
     "@qdrant/js-client-rest": "1.20.0",

@@ -62,6 +62,8 @@ jobs:
           fi
       - name: Read-write-delete smoke tests on each database
         run: npm --prefix server run db:smoke
+      - name: Real Qdrant vector memory recall, isolation and source deletion
+        run: npm --prefix server run memory:smoke
       - name: Troubleshooting container states
         if: always()
         run: |
