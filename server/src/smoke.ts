@@ -8,7 +8,7 @@ async function main(): Promise<void> {
   const mongo = mongoClient(settings);
   try {
     await mongo.connect();
-    const collection = mongo.db('hayumeri').collection('hayumeri_smoke');
+    const collection = mongo.db('hayumeri').collection<{ _id: string; value: string }>('hayumeri_smoke');
     try {
       await collection.insertOne({ _id: id, value: 'ok' });
       if (!(await collection.findOne({ _id: id }))) throw new Error('MongoDB read failed');
