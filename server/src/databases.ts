@@ -82,8 +82,16 @@ async function check(name: DatabaseName, task: () => Promise<void>): Promise<Dat
     return { name, ok: true, latencyMs: Math.round(performance.now() - start) };
   } catch (error) {
     // Do not print raw driver errors: URLs can contain secrets.
-    const message = error instanceof Error ? error.name : 'UnknownError';
-    return { name, ok: false, latencyMs: Math.round(performance.now() - start), error: message };
+    const type = error instanceof Error ? error.name : 'UnknownError';
+    const detail = error instanceof Error ? error.message : '';
+    const safe = detail
+      .replace(/[a-f0-9]{64}/gi, '[СКРЫТО]')
+      .replace(/(mongodb|redis):\/\/[^\s@]+@/gi, '$1://[СКРЫТО]@')
+      .slice(0, 280);
+    return {
+      name, ok: false, latencyMs: Math.round(performance.now() - start),
+      error: type + (safe ? ': ' + safe : '')
+    };
   }
 }
 
