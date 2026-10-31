@@ -45,6 +45,11 @@ jobs:
             $ready = $false
             for ($i = 0; $i -lt 60; $i++) {
               $main.Refresh()
+              $launcherLog = Join-Path $folder 'logs/launch.log'
+              if (Test-Path -LiteralPath $launcherLog) {
+                $logText = Get-Content -LiteralPath $launcherLog -Raw
+                if ($logText -match 'ERROR:') { throw 'BAT reported a startup error. See launcher log below.' }
+              }
               if ($main.HasExited) { throw "BAT exited early with code $($main.ExitCode)" }
               try {
                 $response = Invoke-WebRequest -Uri 'http://127.0.0.1:5173/' -UseBasicParsing -TimeoutSec 2
