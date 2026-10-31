@@ -39,6 +39,10 @@
       "sha256": "42eeb3f462b5e57854bd61df77ce85b8fb368b6e2b49548686043a5a96eb737e"
     },
     {
+      "path": "scripts/semantic-memory-api.ts",
+      "sha256": "460fb73f83a79bd12484f0da997814d3e027e52cd9529f2f0a1907f47fdf778c"
+    },
+    {
       "path": "scripts/start.ps1",
       "sha256": "60bf62b30714819288567f4cf74c071a30cf7910370e00a0eaaf4cb6b61044e5"
     },
@@ -48,11 +52,11 @@
     },
     {
       "path": "scripts/workspace-api.ts",
-      "sha256": "5e0d5cf1248c6dba5ff18b162ae444ccba94871706920030a7e85958aaaae3c1"
+      "sha256": "9d221f5a26e9fb123766b7dce4760afa6469c1db3fcec7567f4cf6138ec7b37f"
     },
     {
       "path": "src/main.ts",
-      "sha256": "a0838f19e0fa87b34955e6bdcf232cefa9b5ae3f8eab55e7b08ca24f19f1b35c"
+      "sha256": "ae73fa8df1eb57b5aed9f475dfaf38448a0ed147b1ec504ae71cd55463148749"
     },
     {
       "path": "src/monitor.css",
@@ -71,6 +75,10 @@
       "sha256": "b10174d24ee7736863f6106176691f414cbf7f70e24c4982fc597ab62e1bb1b5"
     },
     {
+      "path": "src/semantic-memory.css",
+      "sha256": "009c0ea34d444b026317bc4f98436f04bd0913f7c8ae8d264d67dde71fbc067d"
+    },
+    {
       "path": "src/style.css",
       "sha256": "e8744f4cbd3bd449b208a06f40caa2b8081b121b51b4d5c0ffad3a533e1e25c4"
     },
@@ -84,7 +92,7 @@
     },
     {
       "path": "src/workspace.ts",
-      "sha256": "cf02338b8543eaa2ca47e8c79088f96defa1bbd18ba877264677fb940d814dfc"
+      "sha256": "8959d2e1f449a867673f74e0214414ed1e3e46c6e1e8d235c7d1cc52e059ec8f"
     },
     {
       "path": "tsconfig.json",
@@ -92,7 +100,7 @@
     },
     {
       "path": "vite.config.ts",
-      "sha256": "e57561b179e2b274e92059b9b68b13df571af43b722669ad589905fc6b93551e"
+      "sha256": "f20c75c5ddccd4dab14086ec7a78e8a7281b0b3e78edd44d09d2a77abd9cfc1c"
     }
   ]
 }
