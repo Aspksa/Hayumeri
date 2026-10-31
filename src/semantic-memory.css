@@ -1,0 +1,28 @@
+/* Verified source-linked semantic notes memory. Gold-on-obsidian design. */
+.semantic-panel { max-width: 1120px; padding: clamp(20px,3vw,32px);
+  border: 1px solid var(--gold-line); border-radius: 14px;
+  background: linear-gradient(140deg,#19160f,#0c0c0b); }
+.semantic-panel h2 { margin: 10px 0 12px; font-size: clamp(20px,2.5vw,29px); font-weight: 600; }
+.semantic-panel > p { font-size: 13px; line-height: 1.75; color: var(--text-secondary); }
+.semantic-stats { display: flex; flex-wrap: wrap; gap: 12px 25px; padding: 18px 0;
+  margin: 24px 0; border-top: 1px solid var(--gold-line); border-bottom: 1px solid var(--gold-line); }
+.semantic-stats span { color: var(--text-muted); font-size: 12px; }
+.semantic-stats strong { color: var(--gold-light); }
+.semantic-form { margin: 25px 0 16px; }
+.semantic-form .task-add-row { display: flex; gap: 10px; }
+.semantic-form .workspace-input { flex: 1; }
+.semantic-notice { color: var(--text-muted) !important; font-size: 11px !important; }
+.semantic-results { display: flex; flex-direction: column; gap: 12px; margin-top: 22px; }
+.semantic-result { padding: 18px; border-radius: 11px; border: 1px solid var(--gold-line);
+  background: #11100e; }
+.semantic-result-head, .semantic-result-foot { display: flex; flex-wrap: wrap; align-items: center;
+  justify-content: space-between; gap: 12px; }
+.semantic-result-head strong { overflow-wrap: anywhere; font-size: 15px; }
+.semantic-result-head span { color: var(--gold-light); font-size: 12px; }
+.semantic-result p { color: var(--text-secondary); line-height: 1.7; overflow-wrap: anywhere; }
+.semantic-result-foot small { font-size: 11px; color: var(--text-muted); }
+@media (max-width: 600px) {
+  .semantic-form .task-add-row { flex-direction: column; }
+  .semantic-form .gold-button { width: 100%; }
+  .semantic-panel { padding: 18px; }
+}
