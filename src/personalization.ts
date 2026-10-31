@@ -29,7 +29,7 @@ let saving = false;
 let changedSinceSave = false;
 let saveTimer: number | undefined;
 let saveError = '';
-const emit = (): void => window.dispatchEvent(new Event('hayumeri:preferences-change'));
+const emit = (): void => { window.dispatchEvent(new Event('hayumeri:preferences-change')); };
 const htmlEscape = (value: string): string => value.replace(/[&<>"']/g, c => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 })[c]!);
