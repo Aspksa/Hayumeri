@@ -36,7 +36,7 @@
     },
     {
       "path": "scripts/apply-update.ps1",
-      "sha256": "ff9b734269252f1142934b0efe399f1b967ebb52d4a5b8f3b11603638bc6cc1a"
+      "sha256": "8e9528c6d80c24e9ec4385dbbd1155a61d95a759d1d0189048eb62b73fdd2973"
     },
     {
       "path": "config/update.json",
