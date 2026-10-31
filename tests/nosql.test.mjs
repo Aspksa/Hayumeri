@@ -80,3 +80,10 @@ test('four TypeScript drivers and isolated CRUD checks are provided', () => {
   assert.match(text('server/src/smoke.ts'), /hayumeri_smoke/);
   assert.match(text('server/src/smoke.ts'), /deleteCollection/);
 });
+
+test('Vite does not watch launcher status JSON or database backend files', () => {
+  const vite = text('vite.config.ts');
+  assert.match(vite, /\.runtime/);
+  assert.match(vite, /logs/);
+  assert.match(vite, /server/);
+});
