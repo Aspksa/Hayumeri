@@ -8,11 +8,15 @@
     },
     {
       "path": "src/main.ts",
-      "sha256": "94299c696cd75e8d0ed1773160b5c733d3c7f980c516d842cf251a112e5304ad"
+      "sha256": "d630394855da9b0112cc095a348d056a94119a240627c0ba76a4a44e5fcb4855"
     },
     {
       "path": "src/style.css",
-      "sha256": "aaf6394ee9f9764b41070cff0a518207415d36b45a55eb37d5749c797729f278"
+      "sha256": "03f6d1d6a11682596096e76f426f86c3fa4bd1ccc55d4ab6c4ae2c23afb775f1"
+    },
+    {
+      "path": "src/update-ui.ts",
+      "sha256": "ab4181f66c6331f0fc5654f7cbaf1c5e97a5b5f631653b9efef3c2cac8f0d770"
     },
     {
       "path": "tsconfig.json",
@@ -20,7 +24,23 @@
     },
     {
       "path": "package.json",
-      "sha256": "f80835648d2c2653d64bb066a2cb5804d437f458652bc70ec82bf9f7e1ee20a7"
+      "sha256": "f8f93f5490ac068444f9ba98723a09981cba8d5889191eb98affe192c4d09191"
+    },
+    {
+      "path": "vite.config.ts",
+      "sha256": "ce04e3aa8ec1ca222a38b914d598b2ed97255d8d54ad474086e0dde89f7be245"
+    },
+    {
+      "path": "scripts/update-api.ts",
+      "sha256": "f13371756056dfc39b8c119609920c1d8bddcfb5297e65bdb85bcb2f44d5bee4"
+    },
+    {
+      "path": "scripts/apply-update.ps1",
+      "sha256": "ff9b734269252f1142934b0efe399f1b967ebb52d4a5b8f3b11603638bc6cc1a"
+    },
+    {
+      "path": "config/update.json",
+      "sha256": "a5c4bc63eb8ca074be7d542f92dbee38a8803888dfd2a42c20566695bb7279c6"
     }
   ]
 }
