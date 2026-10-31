@@ -38,7 +38,7 @@ test('Qdrant on-disk storage, bounded batches and source-verified search',()=>{
   assert.match(source,/points\/query/);
   assert.match(source,/points\/delete\?wait=true/);
   assert.match(source,/must_not:\[\{key:'sourceHash'/);
-  assert.match(source,/sourceHash:sourceHash/);
+  assert.match(source,/sourceHash,revision:sourceHash/);
   assert.match(source,/index\.revisions\[p\.sourceId\]/);
   assert.match(source,/new Map\(notes\(\)\.map/);
   assert.match(source,/offset\+=32/);
