@@ -122,3 +122,4 @@ jobs:
             throw 'Missing config diagnostic'
           }
           Write-Host 'Negative preflight tests succeeded.'
+          exit 0 # Expected error codes above were verified; the test itself succeeded.
