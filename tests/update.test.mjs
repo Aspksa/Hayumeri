@@ -60,7 +60,7 @@ test('rollback preserves user data and restart only after health check', () => {
   }
   assert.doesNotMatch(worker, /Remove-Item -LiteralPath \$root -Recurse/);
   assert.match(launcher, /HAYUMERI_LAUNCHER/);
-  assert.match(launcher, /\$server\.ExitCode -eq 75/);
+  assert.match(launcher, /\[int\]\$serverExitCode -eq 75/);
   assert.match(launcher, /ОБНОВЛЕНИЕ/);
   assert.equal((launcher.match(/exit \$exitCode/g) ?? []).length, 1, 'duplicated PowerShell script tail');
   assert.match(config.baselineCommit, /^[a-f0-9]{40}$/);
