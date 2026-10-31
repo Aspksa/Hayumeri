@@ -21,12 +21,14 @@ test('BAT is ASCII/CRLF without BOM and uses safe path handling', () => {
   assert.match(bat, /"%CD%\\scripts\\start\.ps1"/);
   assert.match(bat, /SystemRoot%\\System32\\WindowsPowerShell/);
   assert.match(bat, /set "EXIT_CODE=%ERRORLEVEL%"/);
+  assert.match(bat, /"%CI%"=="true"/);
 });
 
 test('portable Node.js is verified, pinned and downloaded over HTTPS', () => {
   assert.match(launcher, /\$version = 'v24\.22\.2'/);
   assert.match(launcher, /https:\/\/nodejs\.org\/dist\/\$version/);
-  assert.match(launcher, /Get-FileHash -LiteralPath \$zip -Algorithm SHA256/);
+  assert.match(launcher, /Get-Sha256 \$zip/);
+  assert.match(launcher, /SHA256]::Create/);
   assert.match(launcher, /SHASUMS256\.txt/);
   assert.match(launcher, /Get-WithRetry/);
   assert.match(launcher, /Expand-Archive/);
@@ -44,8 +46,8 @@ test('prevents duplicates without killing unrelated user processes or requiring 
 
 test('recognizes package.json, package-lock.json and Node version changes', () => {
   assert.match(launcher, /function Get-InstallFingerprint/);
-  assert.match(launcher, /Get-FileHash -LiteralPath \$manifest/);
-  assert.match(launcher, /Get-FileHash -LiteralPath \$lockfile/);
+  assert.match(launcher, /Get-Sha256 \$manifest/);
+  assert.match(launcher, /Get-Sha256 \$lockfile/);
   assert.match(launcher, /\$nodeInfo\.version/);
   assert.match(launcher, /\$installedFingerprint -ne \$fingerprint/);
   assert.match(launcher, /Set-Content -LiteralPath \$marker -Value \(Get-InstallFingerprint\)/);
