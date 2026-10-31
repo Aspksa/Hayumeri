@@ -9,6 +9,8 @@ services:
       MONGO_INITDB_ROOT_USERNAME: hayumeri
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?Run Hayumeri-DB.bat start to generate credentials}
       MONGO_INITDB_DATABASE: hayumeri
+      # Prevent known TCMalloc/rseq crashes on Linux kernels 6.19–7.0.13.
+      GLIBC_TUNABLES: glibc.pthread.rseq=1
     command: ["mongod", "--bind_ip_all", "--wiredTigerCacheSizeGB", "0.25"]
     ports:
       - "127.0.0.1:27017:27017"
