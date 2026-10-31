@@ -35,6 +35,11 @@ jobs:
         run: |
           & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/apply-update.ps1 -SelfTest
           if ($LASTEXITCODE -ne 0) { throw 'Updater PowerShell self-test failed' }
+      - name: Verify exact GitHub archive and Git tree without installation
+        shell: pwsh
+        run: |
+          & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/apply-update.ps1 -Commit 152065f3c70cfdb523e8accb812ce3334942671c -VerifyOnly
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub archive verification failed' }
       - name: Verify NoSQL BAT command handling (without Docker)
         shell: pwsh
         run: |
