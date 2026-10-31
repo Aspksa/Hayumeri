@@ -13,8 +13,13 @@ async function main(): Promise<void> {
   if (results.some(item => !item.ok)) process.exitCode = 1;
 }
 
+const watchdog = setTimeout(() => {
+  console.error('[ОШИБКА] Проверка баз превысила 15 секунд.');
+  process.exit(2);
+}, 15000);
+
 main().catch(error => {
   // Do not reveal secrets in raw connection string messages.
   console.error('[ОШИБКА] ' + (error instanceof Error ? error.name + ': ' + error.message.replace(/[a-f0-9]{64}/gi, '[скрыто]') : 'Неизвестная ошибка'));
   process.exitCode = 1;
-});
+}).finally(() => clearTimeout(watchdog));
