@@ -88,7 +88,12 @@ export function initWorkspaceUi(): void {
       errorMessage = error instanceof Error ? error.message : 'Не удалось сохранить изменения.';
       announce('Ошибка сохранения: ' + errorMessage);
       return false;
-    } finally { saving = false; render(); }
+    } finally {
+      saving = false;
+      // Do not rebuild the editor after a failed write: the unsaved text
+      // must stay available for retry or manual copying.
+      if (!errorMessage) render();
+    }
   }
   function renderNavigation(): void {
     navigation.innerHTML = routeKeys.map(key => {
@@ -209,7 +214,11 @@ export function initWorkspaceUi(): void {
     renderNavigation();
     render();
     if (next === 'notes' || next === 'tasks') void ensureLoaded();
-    window.scrollTo(0, 0);
+    if (next === 'home' && (location.hash === '#foundation' || location.hash === '#platform')) {
+      requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView());
+    } else {
+      window.scrollTo(0, 0);
+    }
   }
   function requestRoute(): void { navigate(currentRoute()); }
 
@@ -230,13 +239,20 @@ export function initWorkspaceUi(): void {
     }
     if (element.id === 'notes-search') {
       noteSearch = (element as HTMLInputElement).value;
-      const list = view.querySelector<HTMLElement>('.notes-list');
-      if (list) {
-        const cursor = document.activeElement as HTMLInputElement;
-        render();
-        view.querySelector<HTMLInputElement>('#notes-search')?.focus();
-        view.querySelector<HTMLInputElement>('#notes-search')?.setSelectionRange(cursor.selectionStart, cursor.selectionEnd);
-      }
+      // Filtering must never destroy an unsaved note draft.
+      const titleDraft = view.querySelector<HTMLInputElement>('#note-title')?.value ?? '';
+      const bodyDraft = view.querySelector<HTMLTextAreaElement>('#note-body')?.value ?? '';
+      const searchField = element as HTMLInputElement;
+      const cursorStart = searchField.selectionStart;
+      const cursorEnd = searchField.selectionEnd;
+      render();
+      const nextTitle = view.querySelector<HTMLInputElement>('#note-title');
+      const nextBody = view.querySelector<HTMLTextAreaElement>('#note-body');
+      if (nextTitle) nextTitle.value = titleDraft;
+      if (nextBody) nextBody.value = bodyDraft;
+      const nextSearch = view.querySelector<HTMLInputElement>('#notes-search');
+      nextSearch?.focus();
+      if (cursorStart !== null && cursorEnd !== null) nextSearch?.setSelectionRange(cursorStart, cursorEnd);
     }
   });
   view.addEventListener('submit', event => {
