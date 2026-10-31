@@ -26,6 +26,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Unit tests failed' }
           npm run build
           if ($LASTEXITCODE -ne 0) { throw 'TypeScript or Vite build failed' }
+          npm install --prefix server --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'Server driver dependencies failed to install' }
+          npm --prefix server run check:types
+          if ($LASTEXITCODE -ne 0) { throw 'Four-database TypeScript check failed' }
       - name: Double-click style BAT smoke test (Unicode, spaces, exclamation, ampersand)
         shell: pwsh
         run: |
