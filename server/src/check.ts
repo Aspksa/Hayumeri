@@ -22,4 +22,8 @@ main().catch(error => {
   // Do not reveal secrets in raw connection string messages.
   console.error('[ОШИБКА] ' + (error instanceof Error ? error.name + ': ' + error.message.replace(/[a-f0-9]{64}/gi, '[скрыто]') : 'Неизвестная ошибка'));
   process.exitCode = 1;
-}).finally(() => clearTimeout(watchdog));
+}).finally(() => {
+  clearTimeout(watchdog);
+  // Some HTTP/DB SDK agents keep idle handles after their requests finish.
+  setImmediate(() => process.exit(process.exitCode ?? 0));
+});
