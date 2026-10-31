@@ -31,7 +31,7 @@ function Write-State([string]$state, [string]$message, [string]$profile, [string
   }
   $temp = Join-Path $runtime ('nosql-status-' + [guid]::NewGuid().ToString('N') + '.tmp')
   try {
-    [IO.File]::WriteAllText($temp, (ConvertTo-Json -InputObject $item -Depth 5 -Compress), (New-Object Text.UTF8Encoding($false)))
+    [IO.File]::WriteAllText($temp, (ConvertTo-Json -InputObject $item -Depth 5 -Compress), ([Text.UTF8Encoding]::new($false)))
     if (Test-Path -LiteralPath $statusFile) { [IO.File]::Replace($temp, $statusFile, $null) }
     else { [IO.File]::Move($temp, $statusFile) }
   } catch {
