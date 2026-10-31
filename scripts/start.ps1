@@ -125,13 +125,13 @@ function Install-PortableNode {
     }
 }
 
-function Invoke-LoggedNpm([string[]] $arguments) {
+function Invoke-LoggedCommand([string] $executable, [string[]] $arguments) {
     # On PowerShell 5.1, native stderr may be an ErrorRecord: don't turn
     # harmless npm warnings into terminating PowerShell exceptions.
     $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        & $script:npm @arguments 2>&1 | ForEach-Object {
+        & $executable @arguments 2>&1 | ForEach-Object {
             $line = [string] $_
             Write-Host $line
             Add-Content -LiteralPath $log -Value $line -Encoding UTF8
@@ -178,13 +178,12 @@ try {
         $env:PATH = $nodeInfo.directory + ';' + $env:PATH
         $env:NPM_CONFIG_CACHE = Join-Path $runtime 'npm-cache'
         $env:NPM_CONFIG_UPDATE_NOTIFIER = 'false'
-        $script:npm = $nodeInfo.npm
         Write-Log "Using Node.js $($nodeInfo.version) and npm.cmd"
 
         $manifest = Join-Path $root 'package.json'
         $lockfile = Join-Path $root 'package-lock.json'
         $marker = Join-Path $runtime 'installed-dependencies.sha256'
-        $viteBin = Join-Path $root 'node_modules\.bin\vite.cmd'
+        $viteJs = Join-Path $root 'node_modules\vite\bin\vite.js'
         function Get-InstallFingerprint {
             $packageHash = (Get-Sha256 $manifest)
             $lockHash = if (Test-Path -LiteralPath $lockfile) { (Get-Sha256 $lockfile) } else { 'no-lock' }
@@ -192,15 +191,15 @@ try {
         }
         $fingerprint = Get-InstallFingerprint
         $installedFingerprint = if (Test-Path -LiteralPath $marker) { (Get-Content -LiteralPath $marker -Raw).Trim() } else { '' }
-        if (-not (Test-Path -LiteralPath $viteBin -PathType Leaf) -or $installedFingerprint -ne $fingerprint) {
+        if (-not (Test-Path -LiteralPath $viteJs -PathType Leaf) -or $installedFingerprint -ne $fingerprint) {
             Write-Log 'Installing dependencies (first run or changed manifest/lockfile/runtime)...'
             if (Test-Path -LiteralPath $lockfile) {
-                $code = Invoke-LoggedNpm -arguments @('ci', '--no-audit', '--no-fund')
+                $code = Invoke-LoggedCommand -executable $nodeInfo.npm -arguments @('ci', '--no-audit', '--no-fund')
             } else {
-                $code = Invoke-LoggedNpm -arguments @('install', '--no-audit', '--no-fund')
+                $code = Invoke-LoggedCommand -executable $nodeInfo.npm -arguments @('install', '--no-audit', '--no-fund')
             }
             if ($code -ne 0) { throw "npm installation failed (exit $code). See $log" }
-            if (-not (Test-Path -LiteralPath $viteBin -PathType Leaf)) { throw 'Vite executable is missing after npm install.' }
+            if (-not (Test-Path -LiteralPath $viteJs -PathType Leaf)) { throw 'Vite executable is missing after npm install.' }
             # npm install may have generated a lockfile. Fingerprint the final state.
             Set-Content -LiteralPath $marker -Value (Get-InstallFingerprint) -Encoding ASCII
             Write-Log 'Dependencies verified.'
@@ -208,7 +207,7 @@ try {
 
         Write-Log 'Starting local web server at 127.0.0.1 (default port 5173).'
         Write-Log 'Vite opens the browser and chooses another port if required. Ctrl+C stops the server.'
-        $code = Invoke-LoggedNpm -arguments @('run', 'dev', '--', '--host', '127.0.0.1', '--port', '5173', '--open')
+        $code = Invoke-LoggedCommand -executable $nodeInfo.node -arguments @($viteJs, '--host', '127.0.0.1', '--port', '5173', '--open')
         if ($code -ne 0) { throw "Web server stopped with exit code $code." }
         $exitCode = 0
     }
