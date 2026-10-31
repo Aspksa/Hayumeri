@@ -75,7 +75,7 @@ function Start-DockerDesktop {
 }
 function Free-Disk {
   try {
-    $drive = New-Object IO.DriveInfo([IO.Path]::GetPathRoot($root))
+    $drive = [IO.DriveInfo]::new([IO.Path]::GetPathRoot($root))
     if ($drive.IsReady) { return $drive.AvailableFreeSpace / 1GB }
   } catch { }
   return -1
