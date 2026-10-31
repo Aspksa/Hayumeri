@@ -1,5 +1,6 @@
 import type { Plugin } from 'vite';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -20,9 +21,65 @@ function readJson(path: string): Record<string, unknown> {
 }
 function installedCommit(): string {
   const saved = readJson(stateFile).commit;
+  if (typeof saved === 'string' && /^[a-f0-9]{40}$/.test(saved)) return saved;
+  if (existsSync(join(root, '.git'))) {
+    try {
+      const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', timeout: 2500 }).trim();
+      if (/^[a-f0-9]{40}$/.test(sha)) return sha;
+    } catch { /* git may not be installed */ }
+  }
   const baseline = readJson(join(root, 'config', 'update.json')).baselineCommit;
-  return typeof saved === 'string' && /^[a-f0-9]{40}$/.test(saved)
-    ? saved : typeof baseline === 'string' && /^[a-f0-9]{40}$/.test(baseline) ? baseline : '';
+  return typeof baseline === 'string' && /^[a-f0-9]{40}$/.test(baseline) ? baseline : '';
+}
+
+/**
+ * A GitHub ZIP does not contain its commit ID. For a fresh installation
+ * infer the installed revision by comparing every repository file to the
+ * exact Git tree. Do not trust version strings alone.
+ */
+async function detectFreshSnapshot(sha: string): Promise<void> {
+  if (existsSync(stateFile) || existsSync(join(root, '.git'))) return;
+  const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'Hayumeri-local-updater' };
+  try {
+    const commitResponse = await fetch(github + '/git/commits/' + sha, {
+      headers, signal: AbortSignal.timeout(10000)
+    });
+    if (!commitResponse.ok) return;
+    const commit = await commitResponse.json() as { tree?: { sha?: string } };
+    if (!commit.tree?.sha || !/^[a-f0-9]{40}$/.test(commit.tree.sha)) return;
+    const treeResponse = await fetch(github + '/git/trees/' + commit.tree.sha + '?recursive=1', {
+      headers, signal: AbortSignal.timeout(10000)
+    });
+    if (!treeResponse.ok) return;
+    const data = await treeResponse.json() as {
+      truncated?: boolean;
+      tree?: Array<{ path: string; type: string; sha: string }>;
+    };
+    if (data.truncated || !data.tree) return;
+    let checked = 0;
+    for (const file of data.tree) {
+      if (file.type !== 'blob') continue;
+      if (!/^[a-zA-Z0-9_./-]+$/.test(file.path) || file.path.includes('..')) return;
+      if (file.path === 'config/launcher.json') continue;
+      const full = join(root, ...file.path.split('/'));
+      if (!existsSync(full)) return;
+      let bytes = readFileSync(full);
+      // Git normalizes BAT to LF in blob objects; Windows checkout uses CRLF.
+      if (file.path.toLowerCase().endsWith('.bat')) {
+        bytes = Buffer.from(bytes.toString('utf8').replace(/\r\n/g, '\n'), 'utf8');
+      }
+      const sha1 = createHash('sha1')
+        .update(Buffer.from('blob ' + bytes.length + String.fromCharCode(0)))
+        .update(bytes).digest('hex');
+      if (sha1 !== file.sha) return;
+      checked++;
+    }
+    if (checked < 8) return;
+    mkdirSync(runtime, { recursive: true });
+    const temp = stateFile + '.tmp';
+    writeFileSync(temp, JSON.stringify({ commit: sha, detectedAt: new Date().toISOString() }), 'utf8');
+    renameSync(temp, stateFile);
+  } catch { /* no network, file locks, or incomplete ZIP: retain baseline */ }
 }
 function send(res: ServerResponse, code: number, data: Record<string, unknown>): void {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
@@ -42,6 +99,7 @@ async function fetchGithub(): Promise<GithubUpdate> {
     message: (body.commit?.message ?? '').split('\n')[0].slice(0, 200),
     checkedAt: Date.now()
   };
+  await detectFreshSnapshot(result.sha);
   latest = result;
   return result;
 }

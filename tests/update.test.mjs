@@ -66,6 +66,16 @@ test('rollback preserves user data and restart only after health check', () => {
   assert.match(config.baselineCommit, /^[a-f0-9]{40}$/);
 });
 
+test('fresh GitHub ZIP revision is inferred from full Git tree and normalized BAT', () => {
+  assert.match(api, /function detectFreshSnapshot/);
+  assert.match(api, /git\/trees\//);
+  assert.match(api, /createHash\('sha1'\)/);
+  assert.match(api, /file\.path\.toLowerCase\(\)\.endsWith\('\.bat'\)/);
+  assert.match(api, /config\/launcher\.json/);
+  assert.match(api, /detectedAt/);
+  assert.match(api, /execFileSync\('git'/);
+});
+
 test('Windows PowerShell installer has UTF-8 BOM for Russian messages', () => {
   const bytes = readFileSync(new URL('scripts/apply-update.ps1', root));
   assert.deepEqual([...bytes.subarray(0, 3)], [239, 187, 191]);
