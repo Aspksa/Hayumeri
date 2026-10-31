@@ -1,0 +1,185 @@
+/* Hayumeri viewport adaptation: monitors, ultrawide, HiDPI, zoom and short windows.
+ * Breakpoints follow CSS viewport width after OS/browser scaling, not physical pixels.
+ * Loaded last so these refinements override earlier breakpoint rules. */
+:root {
+  --monitor-shell-max: 2304px;
+  --monitor-gutter: clamp(18px, 3.1vw, 88px);
+  --monitor-sidebar: clamp(206px, 14vw, 258px);
+  --monitor-reading-width: 70ch;
+}
+html { scrollbar-gutter: stable; }
+body { overflow-x: clip; }
+.site-frame {
+  width: min(calc(100% - var(--monitor-gutter) - var(--monitor-gutter)), var(--monitor-shell-max));
+  max-width: 100%;
+}
+.app-layout {
+  display: grid;
+  grid-template-columns: var(--monitor-sidebar) minmax(0, 1fr);
+  gap: clamp(20px, 2.2vw, 48px);
+  min-width: 0;
+}
+.app-layout > .shell { width: 100%; min-width: 0; max-width: none; }
+#home-view, .workspace-view { min-width: 0; }
+.topbar { min-width: 0; gap: clamp(12px, 2.2vw, 32px); }
+.topbar-actions, .brand { flex-shrink: 0; }
+.header-nav { min-width: 0; gap: clamp(16px, 2vw, 40px); }
+.header-nav a { white-space: nowrap; }
+
+.app-sidebar {
+  min-width: 0;
+  padding-right: clamp(10px, 1.2vw, 20px);
+  scrollbar-gutter: stable;
+}
+.workspace-nav-item { min-width: 0; }
+.nav-name { overflow-wrap: anywhere; }
+.workspace-view { max-width: 100%; }
+.workspace-heading { max-width: min(100%, 910px); }
+.workspace-heading p { max-width: var(--monitor-reading-width); }
+#home-view .hero {
+  grid-template-columns: minmax(0, 1fr) minmax(245px, .82fr);
+  gap: clamp(14px, 3vw, 65px);
+  min-height: clamp(520px, 68vh, 830px);
+  padding-block: clamp(65px, 8vh, 135px);
+}
+#home-view .hero h1 { font-size: clamp(46px, 4.6vw, 96px); }
+#home-view .hero-art { width: min(100%, 630px); max-width: 630px; }
+#home-view .hero-copy { min-width: 0; }
+#home-view .hero-lede { max-width: var(--monitor-reading-width); }
+#home-view .facts, #home-view .feature-grid { max-width: 1610px; }
+#home-view .fact { min-width: 0; }
+#home-view .fact small, .feature-card p { overflow-wrap: anywhere; }
+
+/* Reading and editing areas remain useful rather than stretching to the far
+ * edges of a 32:9 or 4K screen. Navigation uses additional space. */
+.note-layout {
+  width: 100%;
+  max-width: 1680px;
+  grid-template-columns: minmax(245px, min(28%, 430px)) minmax(0, 1fr);
+  gap: clamp(14px, 1.5vw, 28px);
+}
+.note-editor, .notes-sidebar { min-width: 0; }
+.note-editor { max-width: 1220px; }
+.workspace-textarea {
+  min-height: clamp(320px, 48vh, 840px);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.task-form, .task-toolbar, .task-list { max-width: 1240px; }
+.task-check, .task-check span { min-width: 0; }
+.future-status, .future-grid, .system-note { max-width: 1670px; }
+.future-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.future-tile { min-width: 0; }
+.future-tile strong { overflow-wrap: anywhere; }
+.update-dialog { max-width: calc(100vw - 28px); }
+
+/* Comfortable information density on large CSS viewports (e.g. 1440p and
+ * 4K with modest Windows scaling). No excessive zoom or unreadably long lines. */
+@media (min-width: 1850px) {
+  .brand { font-size: 15px; }
+  .topbar { min-height: 108px; }
+  .app-sidebar { padding-top: 46px; }
+  .workspace-nav-item { min-height: 49px; font-size: 13px; }
+  .workspace-heading h1 { font-size: clamp(56px, 3.4vw, 78px); }
+  .workspace-heading p, .hero p { font-size: 16px; }
+  .workspace-view { padding-top: clamp(66px, 5vw, 110px); }
+  .workspace-input, .workspace-textarea, .task-check { font-size: 15px; }
+  .gold-button, .danger-button { min-height: 46px; font-size: 13px; }
+  #home-view .hero h1 { font-size: clamp(76px, 4.3vw, 105px); }
+  #home-view .hero-art { width: min(100%, 670px); max-width: 670px; }
+}
+@media (min-width: 2560px) {
+  :root { --monitor-shell-max: 2420px; --monitor-gutter: clamp(64px, 5vw, 160px); }
+  .app-layout { gap: 55px; }
+  .workspace-nav-item { min-height: 51px; }
+  .note-layout { max-width: 1850px; }
+  .note-editor { max-width: 1380px; }
+  .task-form, .task-toolbar, .task-list { max-width: 1360px; }
+}
+/* 1080p / standard laptop. Keep the sidebar, but avoid two compressed hero
+ * columns when the real application area is narrow. */
+@media (max-width: 1399px) and (min-width: 931px) {
+  :root { --monitor-sidebar: 208px; --monitor-gutter: clamp(22px, 2.8vw, 42px); }
+  .app-layout { gap: clamp(18px, 2vw, 29px); }
+  #home-view .hero { grid-template-columns: minmax(0, 1fr); min-height: auto; padding-block: 65px 80px; }
+  #home-view .hero-art { width: min(72%, 400px); margin-top: 15px; }
+  #home-view .hero h1 { font-size: clamp(50px, 5.2vw, 74px); }
+  #home-view .hero-overline { margin-top: 46px; }
+  .note-layout { grid-template-columns: minmax(205px, 32%) minmax(0, 1fr); }
+}
+/* Tablet and zoomed desktop. The same switch naturally applies at 200%
+ * browser zoom or Windows 150%-250% scaling where the CSS viewport shrinks. */
+@media (max-width: 930px) {
+  :root { --monitor-gutter: clamp(16px, 3vw, 32px); }
+  .app-layout { display: block; }
+  .app-sidebar {
+    position: static; max-height: none; overflow: visible; display: block;
+    padding: 14px 0; border-right: 0; border-bottom: 1px solid var(--gold-line);
+    scrollbar-gutter: auto;
+  }
+  .sidebar-intro, .sidebar-footer { display: none; }
+  .workspace-navigation { display: flex; flex-direction: row; overflow-x: auto; gap: 5px; padding-bottom: 5px; }
+  .workspace-nav-item { flex: 0 0 auto; min-height: 44px; }
+  .workspace-nav-item.is-active::before {
+    top: auto; left: 12px; right: 12px; bottom: -1px; width: auto; height: 2px;
+  }
+  .nav-bullet { display: none; }
+  #home-view .hero { grid-template-columns: minmax(0, 1fr); min-height: auto; padding-block: 62px 76px; }
+  #home-view .hero-art { width: min(78%, 430px); max-width: 430px; margin-top: 18px; }
+  #home-view .hero h1 { font-size: clamp(48px, 7vw, 71px); }
+  #home-view .hero-overline { margin-top: 48px; }
+  .note-layout { grid-template-columns: minmax(210px, 36%) minmax(0, 1fr); }
+  .workspace-textarea { min-height: clamp(290px, 47vh, 630px); }
+  .workspace-view { padding-top: 45px; }
+}
+@media (max-width: 760px) {
+  :root { --monitor-gutter: clamp(14px, 3vw, 23px); }
+  .header-nav { display: none; }
+  .note-layout { grid-template-columns: minmax(0, 1fr); }
+  .notes-list { max-height: 240px; }
+  #home-view .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .future-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  :root { --monitor-gutter: 15px; }
+  .site-frame { width: calc(100% - 2 * var(--monitor-gutter)); }
+  .app-layout > .shell { width: 100%; }
+  .header-nav { display: none; }
+  .workspace-navigation { gap: 4px; }
+  .workspace-nav-item { min-height: 44px; padding-inline: 11px; }
+  #home-view .hero { padding-block: 48px 65px; }
+  #home-view .hero h1 { font-size: clamp(39px, 9.8vw, 59px); }
+  #home-view .hero-art { width: min(100%, 340px); }
+  #home-view .facts, .future-grid { grid-template-columns: minmax(0, 1fr); }
+  .note-layout { grid-template-columns: minmax(0, 1fr); }
+  .workspace-view { padding-top: 38px; }
+  .workspace-textarea { min-height: max(250px, 42dvh); }
+  .section-heading { align-items: start; flex-direction: column; }
+}
+@media (max-width: 370px) {
+  :root { --monitor-gutter: 13px; }
+  .topbar-actions .version { display: none; }
+  #home-view .hero h1 { font-size: 36px; }
+  .note-editor, .notes-sidebar { padding: 15px; }
+  .workspace-heading h1 { font-size: 35px; }
+}
+/* Short or landscape windows: users must be able to scroll all content;
+ * avoid a 760px hero occupying a 600px-high desktop viewport. */
+@media (max-height: 740px) and (min-width: 931px) {
+  .topbar { min-height: 74px; }
+  .app-sidebar { max-height: 100dvh; padding-top: 18px; }
+  #home-view .hero { min-height: auto; padding-block: 46px 60px; }
+  #home-view .hero-overline { margin-top: 28px; }
+  #home-view .hero-status { margin-top: 27px; }
+  #home-view .hero-art { width: min(100%, 390px); }
+  .workspace-view { padding-top: 34px; }
+  .workspace-textarea { min-height: 280px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+@media (forced-colors: active) {
+  .workspace-nav-item.is-active, .gold-button, .update-trigger, .action-primary {
+    border: 1px solid ButtonText;
+  }
+}

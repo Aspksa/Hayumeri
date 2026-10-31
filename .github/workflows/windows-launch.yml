@@ -201,6 +201,32 @@ jobs:
             $launcherLog = Join-Path $folder 'logs/launch.log'
             if (Test-Path -LiteralPath $launcherLog) { Get-Content -LiteralPath $launcherLog | Select-Object -Last 50 }
           }
+      - name: Check real Edge or Chrome layout at 13 monitor sizes and scaling ratios
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = 'http://127.0.0.1:5178/'
+          $stdout = Join-Path $env:RUNNER_TEMP 'hayumeri-viewport-vite.out.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'hayumeri-viewport-vite.err.log'
+          $vite = Start-Process -FilePath (Get-Command node.exe).Source -ArgumentList @('node_modules/vite/bin/vite.js','--host','127.0.0.1','--strictPort','--port','5178') -WorkingDirectory $PWD -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 60; $i++) {
+              $vite.Refresh()
+              if ($vite.HasExited) { throw "Viewport Vite exited early: $($vite.ExitCode)" }
+              try {
+                $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200) { $ready = $true; break }
+              } catch { }
+              Start-Sleep -Milliseconds 500
+            }
+            if (-not $ready) { throw 'Viewport test server did not start' }
+            node tests/viewport-smoke.mjs $url
+            if ($LASTEXITCODE -ne 0) { throw 'Real Chromium monitor layout checks failed' }
+          } finally {
+            & taskkill.exe /PID $vite.Id /T /F 2>$null | Out-Null
+            if (Test-Path -LiteralPath $stderr) { Get-Content -LiteralPath $stderr -Tail 30 }
+          }
       - name: Apply actual GitHub update in isolated Windows folder
         shell: pwsh
         env:

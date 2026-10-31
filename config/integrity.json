@@ -28,7 +28,11 @@
     },
     {
       "path": "src/main.ts",
-      "sha256": "b451761947e522705d4b09dff1623374203c8d4cfac516664b558100ded3b2f6"
+      "sha256": "dcf8154fb13a500e94bd8e1fd88b7dd20c717f3f39bf4dc573f2bf5e55709a05"
+    },
+    {
+      "path": "src/monitor.css",
+      "sha256": "98bd7137424bc15de267f7068c56d535ae9e8b5edae6f0f34028a2b38f2501a3"
     },
     {
       "path": "src/style.css",
