@@ -37,7 +37,12 @@ jobs:
             $tokens = $null
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $file), [ref]$tokens, [ref]$errors) | Out-Null
-            if ($errors.Count -gt 0) { throw ("PowerShell parse failed: " + $file + ": " + ($errors | Out-String)) }
+            if ($errors.Count -gt 0) {
+              foreach ($problem in $errors) {
+                Write-Host ("PARSE ERROR " + $file + " at line " + $problem.Extent.StartLineNumber + ": " + $problem.Message + " [near: " + $problem.Extent.Text + "]")
+              }
+              throw ('PowerShell parse errors in ' + $file)
+            }
           }
       - name: Verify PowerShell updater safety checks
         shell: pwsh
