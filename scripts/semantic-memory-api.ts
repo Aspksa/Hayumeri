@@ -173,20 +173,12 @@ async function store(name:string,note:Note,sourceHash:string):Promise<void>{
   for(let offset=0;offset<batches.length;offset+=32){
     await qdrant('/collections/'+name+'/points?wait=true','PUT',{points:batches.slice(offset,offset+32)});
   }
-  // Remove obsolete chunks from older revisions via source-scoped listing.
-  const keep=new Set(batches.map(point=>point.id));
-  let cursor:unknown=undefined;
-  do {
-    const data=await qdrant('/collections/'+name+'/points/scroll','POST',{
-      filter:filter(note.id),limit:128,with_payload:false,with_vector:false,
-      ...(cursor===undefined?{}:{offset:cursor})
-    });
-    const result=data.result??{};
-    const stale=(result.points??[]).filter((p:{id:string})=>!keep.has(String(p.id)))
-      .map((p:{id:string})=>p.id);
-    if(stale.length)await qdrant('/collections/'+name+'/points/delete?wait=true','POST',{points:stale});
-    cursor=result.next_page_offset;
-  } while(cursor!==null&&cursor!==undefined);
+  // Delete only points with the old source hash. The matching new revision
+  // was already upserted, so failed cleanup never destroys original notes.
+  await qdrant('/collections/'+name+'/points/delete?wait=true','POST',{filter:{
+    ...filter(note.id),
+    must_not:[{key:'sourceHash',match:{value:sourceHash}}]
+  }});
 }
 async function reconcile():Promise<void>{
   if(busy||!live)return;
