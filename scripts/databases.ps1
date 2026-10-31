@@ -83,9 +83,10 @@ function Save-ResourceProfile([string]$profileName) {
     @{ schema = 1; name = $profileName } | ConvertTo-Json -Compress | Set-Content -LiteralPath $temp -Encoding UTF8
     if (Test-Path -LiteralPath $profileFile) {
       $backup = Join-Path $parent 'nosql-profile.previous.json'
-      Copy-Item -LiteralPath $profileFile -Destination $backup -Force
+      [IO.File]::Replace($temp, $profileFile, $backup)
+    } else {
+      [IO.File]::Move($temp, $profileFile)
     }
-    Move-Item -LiteralPath $temp -Destination $profileFile -Force
   } finally { if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Force } }
 }
 
