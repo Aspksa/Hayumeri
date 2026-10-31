@@ -30,6 +30,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Server driver dependencies failed to install' }
           npm --prefix server run check:types
           if ($LASTEXITCODE -ne 0) { throw 'Four-database TypeScript check failed' }
+      - name: Full local semantic API integration with isolated Ollama and Qdrant fixtures
+        shell: pwsh
+        run: |
+          node tests/semantic-integration.ci.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Automatic semantic memory end-to-end test failed' }
       - name: Parse Windows PowerShell scripts without running them
         shell: pwsh
         run: |
