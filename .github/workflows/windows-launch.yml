@@ -33,7 +33,7 @@ jobs:
       - name: Parse Windows PowerShell scripts without running them
         shell: pwsh
         run: |
-          foreach ($file in @('scripts/start.ps1', 'scripts/apply-update.ps1', 'scripts/launcher-helpers.ps1')) {
+          foreach ($file in @('scripts/start.ps1', 'scripts/apply-update.ps1', 'scripts/launcher-helpers.ps1', 'scripts/databases.ps1')) {
             $tokens = $null
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $file), [ref]$tokens, [ref]$errors) | Out-Null
@@ -59,13 +59,15 @@ jobs:
         run: |
           & $env:ComSpec /D /C "Hayumeri-DB.bat help"
           if ($LASTEXITCODE -ne 0) { throw 'NoSQL BAT failed before invoking Docker' }
+          & $env:ComSpec /D /C "Hayumeri-DB.bat resources"
+          if ($LASTEXITCODE -ne 0) { throw 'NoSQL resource profile inspection failed without Docker' }
       - name: Double-click style BAT smoke test (Unicode, spaces, exclamation, ampersand)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $folder = Join-Path $env:RUNNER_TEMP 'Hayumeri кириллица ! & test'
           New-Item -ItemType Directory -Force -Path $folder | Out-Null
-          foreach ($name in @('Hayumeri.bat', 'package.json', 'package-lock.json', 'index.html', 'tsconfig.json', 'vite.config.ts')) {
+          foreach ($name in @('Hayumeri.bat', 'package.json', 'package-lock.json', 'index.html', 'tsconfig.json', 'vite.config.ts', 'docker-compose.nosql.yml')) {
             Copy-Item -LiteralPath $name -Destination $folder -ErrorAction Stop
           }
           foreach ($name in @('scripts', 'src', 'config')) {
@@ -284,7 +286,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $folder = Join-Path $env:RUNNER_TEMP 'Hayumeri Upgrade кириллица ! & test'
           New-Item -ItemType Directory -Force -Path $folder | Out-Null
-          foreach ($name in @('Hayumeri.bat','package.json','index.html','tsconfig.json','vite.config.ts')) {
+          foreach ($name in @('Hayumeri.bat','package.json','index.html','tsconfig.json','vite.config.ts','docker-compose.nosql.yml')) {
             Copy-Item -LiteralPath $name -Destination $folder -ErrorAction Stop
           }
           foreach ($name in @('config','scripts','src')) {
@@ -319,7 +321,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $folder = Join-Path $env:RUNNER_TEMP 'Hayumeri negative tests'
           New-Item -ItemType Directory -Force -Path $folder | Out-Null
-          foreach ($name in @('Hayumeri.bat', 'package.json', 'index.html', 'tsconfig.json', 'vite.config.ts')) {
+          foreach ($name in @('Hayumeri.bat', 'package.json', 'index.html', 'tsconfig.json', 'vite.config.ts', 'docker-compose.nosql.yml')) {
             Copy-Item -LiteralPath $name -Destination $folder
           }
           foreach ($name in @('config', 'scripts', 'src')) {

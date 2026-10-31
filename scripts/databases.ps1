@@ -1,5 +1,5 @@
 ﻿param(
-  [ValidateSet('start','stop','status','check','logs','help')]
+  [ValidateSet('start','stop','status','check','logs','stats','resources','balanced','growth','help')]
   [string]$Action = 'start'
 )
 $ErrorActionPreference = 'Stop'
@@ -7,6 +7,88 @@ $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).ProviderPath
 $compose = Join-Path $root 'docker-compose.nosql.yml'
 $envFile = Join-Path $root '.env.nosql'
 Set-Location -LiteralPath $root
+$profileFile = Join-Path (Join-Path $root '.runtime') 'nosql-profile.json'
+# Safe 16 GB laptop presets. Values are private to this PowerShell process;
+# credentials and data are never rewritten when switching a resource profile.
+$profiles = @{
+  balanced = @{
+    HAYUMERI_MONGO_LIMIT = '1536m'
+    HAYUMERI_MONGO_CACHE_GB = '0.5'
+    HAYUMERI_REDIS_LIMIT = '512m'
+    HAYUMERI_REDIS_MAXMEMORY = '256mb'
+    HAYUMERI_NEO4J_LIMIT = '2048m'
+    HAYUMERI_NEO4J_HEAP = '768m'
+    HAYUMERI_NEO4J_PAGECACHE = '512m'
+    HAYUMERI_QDRANT_LIMIT = '2048m'
+  }
+  growth = @{
+    HAYUMERI_MONGO_LIMIT = '2048m'
+    HAYUMERI_MONGO_CACHE_GB = '0.75'
+    HAYUMERI_REDIS_LIMIT = '640m'
+    HAYUMERI_REDIS_MAXMEMORY = '384mb'
+    HAYUMERI_NEO4J_LIMIT = '2560m'
+    HAYUMERI_NEO4J_HEAP = '1024m'
+    HAYUMERI_NEO4J_PAGECACHE = '768m'
+    HAYUMERI_QDRANT_LIMIT = '2560m'
+  }
+}
+
+function Get-ResourceProfile {
+  if (-not (Test-Path -LiteralPath $profileFile -PathType Leaf)) { return 'balanced' }
+  $saved = Get-Content -LiteralPath $profileFile -Raw -Encoding UTF8 | ConvertFrom-Json
+  if ($saved.schema -ne 1 -or $saved.name -notin @('balanced','growth')) {
+    throw 'Неизвестный профиль NoSQL в .runtime/nosql-profile.json. Исправьте файл вручную после проверки резервной копии.'
+  }
+  return [string]$saved.name
+}
+
+function Set-ResourceEnvironment([string]$profileName) {
+  if (-not $profiles.ContainsKey($profileName)) { throw 'Неизвестный профиль ресурсов NoSQL.' }
+  foreach ($key in $profiles[$profileName].Keys) {
+    [Environment]::SetEnvironmentVariable($key, [string]$profiles[$profileName][$key], 'Process')
+  }
+}
+
+function Show-Resources([string]$profileName) {
+  $items = $profiles[$profileName]
+  Write-Host "[РЕСУРСЫ] Профиль: $profileName"
+  Write-Host ("[РЕСУРСЫ] MongoDB: " + $items.HAYUMERI_MONGO_LIMIT + "; WiredTiger: " + $items.HAYUMERI_MONGO_CACHE_GB + ' GB')
+  Write-Host ("[РЕСУРСЫ] Redis: " + $items.HAYUMERI_REDIS_LIMIT + "; ключи: " + $items.HAYUMERI_REDIS_MAXMEMORY + '; noeviction')
+  Write-Host ("[РЕСУРСЫ] Neo4j: " + $items.HAYUMERI_NEO4J_LIMIT + "; heap: " + $items.HAYUMERI_NEO4J_HEAP + "; pagecache: " + $items.HAYUMERI_NEO4J_PAGECACHE)
+  Write-Host ("[РЕСУРСЫ] Qdrant: " + $items.HAYUMERI_QDRANT_LIMIT)
+  Write-Host '[РЕСУРСЫ] Docker/WSL используют дополнительную память. Дисковые тома сохраняются.'
+}
+
+function Assert-AvailableMemory([string]$profileName) {
+  $raw = & $script:docker info --format '{{.MemTotal}}'
+  if ($LASTEXITCODE -ne 0) { throw 'Не удалось получить объём памяти Docker Engine.' }
+  [long]$bytes = 0
+  if (-not [long]::TryParse(([string]$raw).Trim(), [ref]$bytes)) {
+    throw 'Docker вернул некорректный объём доступной памяти.'
+  }
+  $gib = $bytes / 1GB
+  if ($profileName -eq 'growth' -and $gib -lt 9) {
+    throw ('Для профиля growth Docker/WSL должен иметь минимум 9 ГиБ памяти. Сейчас: ' + [math]::Round($gib, 1) + ' ГиБ. Увеличьте лимит WSL/Docker или используйте balanced.')
+  }
+  if ($profileName -eq 'balanced' -and $gib -lt 8) {
+    Write-Host ('[ПРЕДУПРЕЖДЕНИЕ] Docker видит ' + [math]::Round($gib, 1) + ' ГиБ. Четырём базам рекомендуется не менее 8 ГиБ.') -ForegroundColor Yellow
+  }
+}
+
+function Save-ResourceProfile([string]$profileName) {
+  $parent = Split-Path -Parent $profileFile
+  if (-not (Test-Path -LiteralPath $parent)) { [IO.Directory]::CreateDirectory($parent) | Out-Null }
+  $temp = Join-Path $parent ('nosql-profile-' + [guid]::NewGuid().ToString('N') + '.tmp')
+  try {
+    @{ schema = 1; name = $profileName } | ConvertTo-Json -Compress | Set-Content -LiteralPath $temp -Encoding UTF8
+    if (Test-Path -LiteralPath $profileFile) {
+      $backup = Join-Path $parent 'nosql-profile.previous.json'
+      [IO.File]::Replace($temp, $profileFile, $backup)
+    } else {
+      [IO.File]::Move($temp, $profileFile)
+    }
+  } finally { if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Force } }
+}
 
 function New-Secret {
   $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
@@ -108,26 +190,53 @@ function Test-Services($credentials) {
 
 try {
   if ($Action -eq 'help') {
-    Write-Host 'Hayumeri-DB.bat [start|stop|status|check|logs]'
+    Write-Host 'Hayumeri-DB.bat [start|stop|status|check|logs|stats|resources|balanced|growth]'
+    exit 0
+  }
+  $savedProfile = Get-ResourceProfile
+  if ($Action -eq 'resources') {
+    Show-Resources $savedProfile
     exit 0
   }
   if (-not (Test-Path -LiteralPath $compose -PathType Leaf)) { throw 'Не найден docker-compose.nosql.yml' }
   if ($Action -eq 'start') { Ensure-Credentials }
   $credentials = Get-Credentials
   $script:docker = Assert-Docker
+  $activeProfile = $savedProfile
+  if ($Action -in @('balanced','growth')) { $activeProfile = $Action }
+  Set-ResourceEnvironment $activeProfile
+  if ($Action -in @('start','balanced','growth')) { Assert-AvailableMemory $activeProfile }
   switch ($Action) {
     'start' {
+      Show-Resources $activeProfile
       Write-Host '[БАЗЫ] Загрузка и запуск MongoDB, Redis, Neo4j, Qdrant...'
       Invoke-Compose -Arguments @('up','-d')
       Write-Host '[БАЗЫ] Контейнеры запущены. Neo4j может прогреваться дольше остальных.'
       Write-Host '[БАЗЫ] Проверка: Hayumeri-DB.bat check'
       Invoke-Compose -Arguments @('ps')
     }
+    'balanced' {
+      Show-Resources $activeProfile
+      Write-Host '[БАЗЫ] Применение сбалансированного профиля без удаления томов...'
+      Invoke-Compose -Arguments @('up','-d')
+      Save-ResourceProfile $activeProfile
+      Write-Host '[БАЗЫ] Профиль balanced сохранён. Для диагностики: Hayumeri-DB.bat check'
+      Invoke-Compose -Arguments @('ps')
+    }
+    'growth' {
+      Show-Resources $activeProfile
+      Write-Host '[БАЗЫ] Применение усиленного профиля без удаления томов...'
+      Invoke-Compose -Arguments @('up','-d')
+      Save-ResourceProfile $activeProfile
+      Write-Host '[БАЗЫ] Профиль growth сохранён. Для диагностики: Hayumeri-DB.bat check'
+      Invoke-Compose -Arguments @('ps')
+    }
     'stop' {
       Write-Host '[БАЗЫ] Остановка без удаления данных...'
       Invoke-Compose -Arguments @('stop')
     }
-    'status' { Invoke-Compose -Arguments @('ps') }
+    'status' { Show-Resources $activeProfile; Invoke-Compose -Arguments @('ps') }
+    'stats' { Show-Resources $activeProfile; Invoke-Compose -Arguments @('stats','--no-stream') }
     'logs' { Invoke-Compose -Arguments @('logs','--tail','100') }
     'check' { Test-Services $credentials }
   }

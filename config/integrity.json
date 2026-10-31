@@ -7,6 +7,10 @@
       "sha256": "a5c4bc63eb8ca074be7d542f92dbee38a8803888dfd2a42c20566695bb7279c6"
     },
     {
+      "path": "docker-compose.nosql.yml",
+      "sha256": "142f8f188d6155d5993d741ef5a1ce9e732459d522f5e1323a27aaba765af8cd"
+    },
+    {
       "path": "index.html",
       "sha256": "d0f78649f48701b402a6da07fbf8ba9ebcffcfdf2fba50eadae9dd0fc2d052e1"
     },
@@ -17,6 +21,10 @@
     {
       "path": "scripts/apply-update.ps1",
       "sha256": "8e9528c6d80c24e9ec4385dbbd1155a61d95a759d1d0189048eb62b73fdd2973"
+    },
+    {
+      "path": "scripts/databases.ps1",
+      "sha256": "8a42dfb3a86eb78bb2682ff4eab24201b2be79669ea4b37479a23db71b9eabb2"
     },
     {
       "path": "scripts/preferences-api.ts",
