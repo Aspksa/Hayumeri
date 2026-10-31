@@ -1,7 +1,8 @@
 ﻿param(
   [string]$Commit,
   [int]$ParentPid = 0,
-  [switch]$SelfTest
+  [switch]$SelfTest,
+  [switch]$VerifyOnly
 )
 # Self-contained updater. Never requires administrator rights.
 $ErrorActionPreference = 'Stop'
@@ -114,7 +115,7 @@ $previousVersion = if (Test-Path -LiteralPath $stateFile) {
 } else { '' }
 try {
   if ($Commit -notmatch '^[a-f0-9]{40}$') { throw 'Недопустимый идентификатор коммита.' }
-  if (Test-Path -LiteralPath (Join-Path $root '.git')) { throw 'Обновление Git-клона вручную: используйте git pull.' }
+  if ((Test-Path -LiteralPath (Join-Path $root '.git')) -and -not $VerifyOnly) { throw 'Обновление Git-клона вручную: используйте git pull.' }
   New-Item -ItemType Directory -Path $updateRoot -Force | Out-Null
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
   $folder = Join-Path $updateRoot ('stage-' + [Guid]::NewGuid().ToString('N'))
@@ -177,6 +178,11 @@ try {
   if (-not (Test-Path -LiteralPath (Join-Path $staged 'Hayumeri.bat'))) { throw 'В архиве нет файла запуска.' }
   if (-not (Test-Path -LiteralPath (Join-Path $staged 'scripts\start.ps1'))) { throw 'В архиве нет PowerShell-запуска.' }
   Status 'ПРОВЕРЕНО' ('Проверены контрольные суммы ' + $received.Count + ' файлов GitHub.')
+  if ($VerifyOnly) {
+    Status 'ГОТОВО' ('Проверены все Git-объекты без установки: ' + $received.Count + ' файлов.')
+    Remove-Item -LiteralPath $folder -Force -Recurse -ErrorAction SilentlyContinue
+    exit 0
+  }
 
   # Wait for Vite, parent launcher and the mutex to finish before copying.
   if ($ParentPid -gt 0) {
